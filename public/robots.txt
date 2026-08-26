@@ -1,0 +1,6 @@
+# Restricted and unlisted albums are not linked from anywhere public, but the
+# admin side has no business being crawled at all.
+User-agent: *
+Disallow: /admin
+Disallow: /api
+Disallow: /login

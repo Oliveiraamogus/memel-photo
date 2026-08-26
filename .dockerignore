@@ -1,0 +1,9 @@
+node_modules
+.next
+data
+.git
+.env
+.env.local
+*.log
+tsconfig.tsbuildinfo
+README.md

@@ -1,0 +1,111 @@
+name: photo-memel
+
+x-app-env: &app-env
+  NODE_ENV: production
+  SITE_TITLE: ${SITE_TITLE}
+  APP_URL: ${APP_URL}
+  DATABASE_URL: ${DATABASE_URL}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+  S3_REGION: ${S3_REGION}
+  S3_BUCKET_ORIGINALS: ${S3_BUCKET_ORIGINALS}
+  S3_BUCKET_DERIVED: ${S3_BUCKET_DERIVED}
+  S3_ENDPOINT_INTERNAL: ${S3_ENDPOINT_INTERNAL}
+  S3_ENDPOINT_PUBLIC: ${S3_ENDPOINT_PUBLIC}
+  PRESIGN_TTL_SECONDS: ${PRESIGN_TTL_SECONDS}
+  BEST_OF_MIN_RATING_HALF: ${BEST_OF_MIN_RATING_HALF}
+  DEFAULT_DATED_ALBUM_VISIBILITY: ${DEFAULT_DATED_ALBUM_VISIBILITY}
+
+services:
+  garage:
+    image: dxflrs/garage:v2.3.0
+    restart: unless-stopped
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+      GARAGE_DEFAULT_ACCESS_KEY: ${S3_ACCESS_KEY_ID}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_ACCESS_KEY}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET_ORIGINALS}
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - ${GARAGE_META_DIR}:/var/lib/garage/meta
+      - ${GARAGE_DATA_DIR}:/var/lib/garage/data
+    ports:
+      # Published on loopback only; your reverse proxy terminates TLS for
+      # S3_ENDPOINT_PUBLIC and forwards here.
+      - "127.0.0.1:3900:3900"
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ${POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # One-shot: applies migrations, then exits. web and worker wait for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: "no"
+    command: ["node_modules/.bin/tsx", "src/scripts/migrate.ts"]
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      garage:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    command: ["node_modules/.bin/tsx", "src/worker/index.ts"]
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      garage:
+        condition: service_healthy

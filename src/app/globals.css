@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0d0d0f;
+  --color-ink-soft: #16161a;
+  --color-line: #26262c;
+  --color-paper: #f4f4f2;
+  --color-muted: #8b8b96;
+  --color-accent: #c8a25a;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Photos carry the colour; the chrome should not compete with them. */
+@layer components {
+  .panel {
+    background: var(--color-ink-soft);
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-line);
+    padding: 0.45rem 0.85rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: #202027;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border-color: var(--color-paper);
+    font-weight: 500;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #ffffff;
+  }
+
+  .btn-danger {
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #2a1010;
+  }
+
+  .field {
+    width: 100%;
+    background: var(--color-ink);
+    border: 1px solid var(--color-line);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.875rem;
+    color: var(--color-paper);
+  }
+
+  .field:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -1px;
+  }
+
+  .label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+    margin-bottom: 0.35rem;
+  }
+}

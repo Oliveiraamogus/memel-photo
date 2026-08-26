@@ -1,0 +1,21 @@
+# The pg-boss consumer: sharp derivatives, EXIF, thumbhash. Also the image the
+# one-shot migrate service runs from, since both need the source and tsx.
+
+FROM node:24-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:24-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json tsconfig.json ./
+COPY --chown=node:node drizzle ./drizzle
+COPY --chown=node:node src ./src
+
+USER node
+
+# Overridden by compose for the migrate service.
+CMD ["node_modules/.bin/tsx", "src/worker/index.ts"]
