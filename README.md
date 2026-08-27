@@ -1,4 +1,4 @@
-# photo-memel
+# memel-photo
 
 A self-hosted photography portfolio. Next.js + TypeScript on top of Postgres and
 Garage (S3-compatible object storage), running as Docker containers.
@@ -65,7 +65,7 @@ using the keys from `.env`) — then run the backup nightly from cron:
 ```bash
 rclone config
 crontab -e
-# 30 3 * * * /opt/photo-memel/backup/offsite-backup.sh >> /var/log/photo-backup.log 2>&1
+# 30 3 * * * /opt/memel-photo/backup/offsite-backup.sh >> /var/log/photo-backup.log 2>&1
 ```
 
 It ships a gzipped `pg_dump` and syncs the originals bucket. Derivatives are

@@ -17,7 +17,7 @@ const roles = {
 };
 
 export const auth = betterAuth({
-  appName: "photo-memel",
+  appName: "memel-photo",
   secret: process.env.BETTER_AUTH_SECRET ?? "unset-BETTER_AUTH_SECRET",
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.APP_URL,
   database: drizzleAdapter(db, {

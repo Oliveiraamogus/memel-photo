@@ -34,7 +34,7 @@ aws() {
 }
 
 mkdir -p .verify
-echo "photo-memel storage check $(date -Iseconds)" > .verify/probe.txt
+echo "memel-photo storage check $(date -Iseconds)" > .verify/probe.txt
 
 echo "== Buckets visible to the app key =="
 aws s3 ls

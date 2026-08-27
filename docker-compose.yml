@@ -1,4 +1,4 @@
-name: photo-memel
+name: memel-photo
 
 x-app-env: &app-env
   NODE_ENV: production

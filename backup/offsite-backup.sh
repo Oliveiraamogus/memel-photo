@@ -2,7 +2,7 @@
 # Offsite backup: originals and a database dump to Backblaze B2.
 #
 # Run from cron on the Docker host, e.g.
-#   30 3 * * * /opt/photo-memel/backup/offsite-backup.sh >> /var/log/photo-backup.log 2>&1
+#   30 3 * * * /opt/memel-photo/backup/offsite-backup.sh >> /var/log/photo-backup.log 2>&1
 #
 # Only originals are synced. Derivatives are regenerable from them, and paying
 # to store four AVIF sizes of every photo forever is paying for nothing.
@@ -19,13 +19,13 @@ set -a
 source .env
 set +a
 
-B2_REMOTE="${B2_REMOTE:-b2:photo-memel}"
+B2_REMOTE="${B2_REMOTE:-b2:memel-photo}"
 GARAGE_REMOTE="${GARAGE_REMOTE:-garage}"
 
 echo "=== $(date -Iseconds) starting offsite backup ==="
 
 echo "--- database dump ---"
-DUMP="/tmp/photo-memel-$(date +%Y%m%d).sql.gz"
+DUMP="/tmp/memel-photo-$(date +%Y%m%d).sql.gz"
 docker compose exec -T postgres pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
   | gzip > "${DUMP}"
 
