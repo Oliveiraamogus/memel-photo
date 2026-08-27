@@ -17,6 +17,11 @@ x-app-env: &app-env
   PRESIGN_TTL_SECONDS: ${PRESIGN_TTL_SECONDS}
   BEST_OF_MIN_RATING_HALF: ${BEST_OF_MIN_RATING_HALF}
   DEFAULT_DATED_ALBUM_VISIBILITY: ${DEFAULT_DATED_ALBUM_VISIBILITY}
+  STORE_GPS: ${STORE_GPS:-false}
+  # Used by src/scripts/seed.ts when run via `docker compose run worker …`
+  ADMIN_EMAIL: ${ADMIN_EMAIL}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+  ADMIN_NAME: ${ADMIN_NAME}
 
 services:
   garage:
