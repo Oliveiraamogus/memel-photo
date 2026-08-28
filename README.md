@@ -127,27 +127,90 @@ it.
 
 ## Development
 
+Run **Postgres + Garage in Docker**, and the **web app + worker on your machine**.
+That way you edit code and hot-reload without rebuilding images.
+
+### 1. Prerequisites
+
+- Node 22+ (24 is fine)
+- Docker with Compose
+- This repo cloned on your laptop (not only on the Proxmox CT)
+
+### 2. Local `.env`
+
 ```bash
-npm install
-docker compose up -d postgres garage
-npm run db:push          # or db:migrate
-npm run db:seed
-npm run dev              # web on :3000
-npm run worker           # image processing, in a second terminal
+cp .env.example .env
 ```
 
-`npm run check` typechecks and then runs the four suites, each against a
-throwaway in-memory Postgres, so none of them need Docker or touch your data:
+Generate secrets as in the comments, then use **localhost** values (the app runs on the host, not inside Compose):
 
-| Check                  | Covers                                                        |
-| ---------------------- | ------------------------------------------------------------- |
-| `check:migration`      | the migration applies, and the rating and best-of constraints hold |
-| `check:membership`     | rule evaluation, overrides, and who can see and download what  |
-| `check:queries`        | stream deduplication, keyset paging on every sort, tag filters |
-| `check:publish-guard`  | the visibility preview reports the right photos and rolls back |
+```bash
+SITE_TITLE=Memel Photos (dev)
+APP_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3000
 
-The membership and publish-guard suites are the ones worth keeping green: they
-are what stands between a rule change and quietly publishing a private photo.
+POSTGRES_USER=photos
+POSTGRES_PASSWORD=<openssl rand -hex 24>
+POSTGRES_DB=photos
+# Host is localhost — not "postgres" — because Next runs on your machine.
+DATABASE_URL=postgres://photos:<SAME_PASSWORD>@127.0.0.1:5432/photos
+
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=dev-password
+ADMIN_NAME=Admin
+
+# … Garage / S3 secrets as usual …
+
+S3_ENDPOINT_INTERNAL=http://127.0.0.1:3900
+S3_ENDPOINT_PUBLIC=http://127.0.0.1:3900
+
+GARAGE_META_DIR=./data/garage-meta
+GARAGE_DATA_DIR=./data/garage-data
+POSTGRES_DATA_DIR=./data/postgres
+```
+
+Do **not** copy the Proxmox `.env` as-is: `DATABASE_URL` / S3 hosts there point at Docker service names and the CT IP.
+
+### 3. Start dependencies + install
+
+```bash
+mkdir -p data/garage-meta data/garage-data data/postgres
+npm install
+
+docker compose up -d postgres garage
+./scripts/garage-init.sh
+./scripts/verify-storage.sh   # optional; needs amazon/aws-cli pull or local awscli
+
+npm run db:migrate            # or: npm run db:push
+npm run db:seed
+```
+
+### 4. Run the app (two terminals)
+
+```bash
+npm run dev       # http://localhost:3000
+npm run worker    # image processing / membership jobs
+```
+
+Log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Uploads and login stay on this machine; the Proxmox stack is untouched.
+
+### 5. Checks without Docker
+
+```bash
+npm run check
+```
+
+Uses in-memory Postgres (PGlite). Good for ACL / membership / publish-guard before you even start Garage.
+
+### 6. Reset local data
+
+```bash
+docker compose down
+rm -rf data/postgres data/garage-meta data/garage-data
+# then step 3 again
+```
+
+**Note:** `web` / `worker` Compose services are for the server. Locally you only need `postgres` + `garage`.
 
 ## How membership works
 

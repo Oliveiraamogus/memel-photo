@@ -16,10 +16,18 @@ const roles = {
   viewer: ac.newRole({}),
 };
 
+const baseURL =
+  process.env.BETTER_AUTH_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+
+// Better Auth defaults Secure cookies whenever NODE_ENV=production. That breaks
+// LAN installs on plain HTTP (browser silently drops the session cookie).
+const useSecureCookies = baseURL.startsWith("https://");
+
 export const auth = betterAuth({
   appName: "memel-photo",
   secret: process.env.BETTER_AUTH_SECRET ?? "unset-BETTER_AUTH_SECRET",
-  baseURL: process.env.BETTER_AUTH_URL ?? process.env.APP_URL,
+  baseURL,
+  trustedOrigins: [baseURL],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: { user, session, account, verification },
@@ -32,6 +40,9 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,
+  },
+  advanced: {
+    useSecureCookies,
   },
   plugins: [
     adminPlugin({

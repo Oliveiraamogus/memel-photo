@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:all": "concurrently -k -n web,worker -c blue,magenta \"npm run dev\" \"npm run worker\"",
     "build": "next build",
     "start": "next start",
     "worker": "tsx watch src/worker/index.ts",
@@ -16,6 +17,7 @@
     "check:publish-guard": "tsx src/scripts/check-publish-guard.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/scripts/seed.ts",
     "db:rebuild-membership": "tsx src/scripts/rebuild-membership.ts"
@@ -47,6 +49,7 @@
     "@types/react-dom": "^19.2.0",
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.31.10",
+    "concurrently": "^9.2.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

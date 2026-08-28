@@ -40,9 +40,9 @@ services:
       - ${GARAGE_META_DIR}:/var/lib/garage/meta
       - ${GARAGE_DATA_DIR}:/var/lib/garage/data
     ports:
-      # Published on loopback only; your reverse proxy terminates TLS for
-      # S3_ENDPOINT_PUBLIC and forwards here.
-      - "127.0.0.1:3900:3900"
+      # Bound on all interfaces for LAN access. Behind a reverse proxy on the
+      # same host, prefer "127.0.0.1:3900:3900" instead.
+      - "3900:3900"
     healthcheck:
       test: ["CMD", "/garage", "status"]
       interval: 10s
@@ -59,6 +59,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ${POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+    ports:
+      # So `npm run dev` / `npm run worker` on the host can reach Postgres.
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -88,7 +91,9 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3000
     ports:
-      - "127.0.0.1:3000:3000"
+      # Bound on all interfaces for LAN access. Behind a reverse proxy on the
+      # same host, prefer "127.0.0.1:3000:3000" instead.
+      - "3000:3000"
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { config } from "@/lib/config";
 import { db, pool } from "@/lib/db";
-import { album, user } from "@/lib/db/schema";
+import { account, album, session, user } from "@/lib/db/schema";
 
 /**
  * Creates the first admin account and the Best of album. Safe to re-run: both
@@ -22,13 +22,28 @@ async function seedAdmin() {
 
   const existing = await db.select().from(user).where(eq(user.email, email)).limit(1);
   if (existing.length > 0) {
-    if (existing[0].role !== "admin") {
+    const accounts = await db
+      .select()
+      .from(account)
+      .where(eq(account.userId, existing[0].id))
+      .limit(1);
+
+    // A failed createUser can leave a user row with no password account. Wipe
+    // that orphan and recreate, otherwise login will never work.
+    if (accounts.length === 0) {
+      console.log(
+        `Admin ${email} exists without a password account; recreating…`,
+      );
+      await db.delete(session).where(eq(session.userId, existing[0].id));
+      await db.delete(user).where(eq(user.id, existing[0].id));
+    } else if (existing[0].role !== "admin") {
       await db.update(user).set({ role: "admin" }).where(eq(user.id, existing[0].id));
       console.log(`Promoted ${email} to admin.`);
+      return;
     } else {
       console.log(`Admin ${email} already exists.`);
+      return;
     }
-    return;
   }
 
   // Go through Better Auth rather than inserting directly, so the password is
