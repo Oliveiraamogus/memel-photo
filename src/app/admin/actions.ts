@@ -25,6 +25,7 @@ import {
   recomputeAllAlbums,
   recomputeForPhoto,
 } from "@/lib/membership";
+import { type PhotoRow, withUrls } from "@/lib/photos";
 import { previewVisibilityDelta, type VisibilityDelta } from "@/lib/publish-guard";
 import { enqueueRecomputeMembership } from "@/lib/queue";
 import { MAX_HALF } from "@/lib/rating";
@@ -586,21 +587,25 @@ export async function rebuildMembership() {
 export async function searchPhotos(query: string, limit = 60) {
   await requireAdmin();
   const term = `%${query.trim()}%`;
-  return db
-    .select({
-      id: photo.id,
-      filename: photo.filename,
-      caption: photo.caption,
-      takenAt: photo.takenAt,
-    })
-    .from(photo)
-    .where(
-      query.trim()
-        ? sql`(${photo.filename} ilike ${term} or coalesce(${photo.caption}, '') ilike ${term})`
-        : sql`true`,
-    )
-    .orderBy(sql`${photo.takenAt} desc nulls last`)
-    .limit(limit);
+  const rows = await execRows<PhotoRow>(
+    db,
+    sql`
+      select
+        p.id, p.width, p.height, p.thumbhash, p.caption, p.filename, p.taken_at,
+        p.camera, p.lens, p.iso, p.aperture, p.shutter, p.focal_length,
+        p.admin_rating_half, p.rating_avg, p.rating_count
+      from photo p
+      where p.status = 'ready'
+        and ${
+          query.trim()
+            ? sql`(p.filename ilike ${term} or coalesce(p.caption, '') ilike ${term})`
+            : sql`true`
+        }
+      order by p.taken_at desc nulls last
+      limit ${limit}
+    `,
+  );
+  return withUrls(rows);
 }
 
 export async function tagsForPhotos(photoIds: string[]) {
