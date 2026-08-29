@@ -17,7 +17,7 @@ import {
   tag,
   user,
 } from "@/lib/db/schema";
-import { recomputeAlbum, recomputeAllAlbums, recomputeForPhoto } from "@/lib/membership";
+import { recomputeAlbum, recomputeAllAlbums, recomputeForPhoto, grantAdminsOnAlbum } from "@/lib/membership";
 import { previewVisibilityDelta, type VisibilityDelta } from "@/lib/publish-guard";
 import { enqueueRecomputeMembership } from "@/lib/queue";
 import { MAX_HALF } from "@/lib/rating";
@@ -81,6 +81,7 @@ export async function createAlbum(formData: FormData) {
     })
     .returning({ id: album.id });
 
+  await grantAdminsOnAlbum(created.id);
   await refreshForAlbum(created.id);
   redirect(`/admin/albums/${created.id}`);
 }

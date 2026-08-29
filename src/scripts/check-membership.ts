@@ -9,7 +9,7 @@
 import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { albumAccess, photoAccess, visibleAlbums } from "@/lib/acl";
 import type { Database } from "@/lib/db";
@@ -300,6 +300,15 @@ check("an admin may view a restricted dated album", adminDated.canView);
 check("and may download its original", adminDated.canDownloadOriginals);
 const outsiderDated = await albumAccess(OUTSIDER, datedAlbumRow, db);
 check("an outsider still cannot view that dated album", !outsiderDated.canView);
+check(
+  "creating a dated album grants the admin originals",
+  (
+    await db
+      .select()
+      .from(albumAccessTable)
+      .where(and(eq(albumAccessTable.albumId, datedAug!), eq(albumAccessTable.userId, ADMIN)))
+  ).length === 1,
+);
 
 /* ---------------------------------------------------------------- listings */
 

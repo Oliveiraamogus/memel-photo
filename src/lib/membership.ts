@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { type Database, db, execRows } from "@/lib/db";
-import { album } from "@/lib/db/schema";
+import { album, albumAccess, user } from "@/lib/db/schema";
 import { datedAlbumSlug, datedAlbumTitle, endOfUtcDay, startOfUtcDay } from "@/lib/slug";
 
 /**
@@ -217,8 +217,37 @@ export async function ensureDatedAlbum(takenAt: Date, database: Database = db) {
           .limit(1)
       )[0]?.id;
 
-  if (id && created) await recomputeAlbum(id, database);
+  if (id && created) {
+    await grantAdminsOnAlbum(id, database);
+    await recomputeAlbum(id, database);
+  }
   return id ?? null;
+}
+
+/** Every admin gets view + originals on a newly created album. */
+export async function grantAdminsOnAlbum(albumId: string, database: Database = db) {
+  const admins = await database
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.role, "admin"));
+  if (admins.length === 0) return;
+  await database
+    .insert(albumAccess)
+    .values(
+      admins.map((admin) => ({
+        albumId,
+        userId: admin.id,
+        canDownloadOriginals: true,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
+export async function grantAdminsOnAllAlbums(database: Database = db) {
+  const albums = await database.select({ id: album.id }).from(album);
+  for (const row of albums) {
+    await grantAdminsOnAlbum(row.id, database);
+  }
 }
 
 /**
