@@ -23,7 +23,7 @@ export default async function UnfiledPage() {
       <h1 className="mb-1 text-xl font-medium">Unfiled</h1>
       <p className="mb-6 max-w-2xl text-sm text-[var(--color-muted)]">
         Photos that belong to no album. They are not published anywhere and nothing links to
-        them. Tag them into a rule album, or add them to one from the{" "}
+        them. Tag them into an album, or add them from the{" "}
         <Link href="/admin/albums" className="underline">
           album editor
         </Link>
