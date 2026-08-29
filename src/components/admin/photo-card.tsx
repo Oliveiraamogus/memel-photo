@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  createTagAndReturn,
   deletePhoto,
   previewRatingChange,
   previewTagChange,
@@ -10,6 +11,7 @@ import {
 } from "@/app/admin/actions";
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { StarInput } from "@/components/stars";
+import { AlbumChips } from "./album-chips";
 import { VisibilityDialog } from "./visibility-dialog";
 
 export type AdminPhoto = {
@@ -46,6 +48,7 @@ export function AdminPhotoCard({
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
   const [rating, setRating] = useState(photo.admin_rating_half);
   const [selectedTags, setSelectedTags] = useState(photoTagIds);
+  const [catalog, setCatalog] = useState(tags);
   const [editingTags, setEditingTags] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -123,25 +126,22 @@ export function AdminPhotoCard({
 
         {editingTags ? (
           <div>
-            <div className="flex flex-wrap gap-1">
-              {tags.map((tag) => {
-                const active = selectedTags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    className={`btn px-2 py-0.5 text-xs ${active ? "btn-primary" : ""}`}
-                    onClick={() =>
-                      setSelectedTags((current) =>
-                        active ? current.filter((id) => id !== tag.id) : [...current, tag.id],
-                      )
-                    }
-                  >
-                    {tag.name}
-                  </button>
+            <span className="label">Albums</span>
+            <AlbumChips
+              albums={catalog}
+              selectedIds={selectedTags}
+              disabled={pending}
+              onChange={setSelectedTags}
+              onCreate={async (name) => {
+                const created = await createTagAndReturn(name);
+                setCatalog((current) =>
+                  current.some((item) => item.id === created.id)
+                    ? current
+                    : [...current, created],
                 );
-              })}
-            </div>
+                return created;
+              }}
+            />
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
@@ -157,7 +157,7 @@ export function AdminPhotoCard({
                   )
                 }
               >
-                Save tags
+                Save albums
               </button>
               <button
                 type="button"
@@ -178,11 +178,11 @@ export function AdminPhotoCard({
             onClick={() => setEditingTags(true)}
           >
             {selectedTags.length > 0
-              ? tags
+              ? catalog
                   .filter((t) => selectedTags.includes(t.id))
                   .map((t) => t.name)
                   .join(", ")
-              : "Add tags"}
+              : "Add to albums"}
           </button>
         )}
 

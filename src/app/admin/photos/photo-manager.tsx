@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { bulkTag, previewBulkTag } from "@/app/admin/actions";
+import { bulkTag, createTagAndReturn, previewBulkTag } from "@/app/admin/actions";
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { AdminPhotoCard, type AdminPhoto } from "@/components/admin/photo-card";
+import { AlbumChips } from "@/components/admin/album-chips";
 import { VisibilityDialog } from "@/components/admin/visibility-dialog";
 
 type Entry = { photo: AdminPhoto; tagIds: string[]; publicReason: string | null };
@@ -18,6 +19,7 @@ export function PhotoManager({
   bestOfThreshold: number;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState(tags);
   const [pending, startTransition] = useTransition();
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
@@ -57,8 +59,8 @@ export function PhotoManager({
             Clear
           </button>
           <span className="ml-auto flex flex-wrap items-center gap-2">
-            <span className="text-xs text-[var(--color-muted)]">Add tag:</span>
-            {tags.map((tag) => (
+            <span className="text-xs text-[var(--color-muted)]">Add to album:</span>
+            {catalog.map((tag) => (
               <button
                 key={tag.id}
                 type="button"
@@ -69,6 +71,22 @@ export function PhotoManager({
                 {tag.name}
               </button>
             ))}
+            <AlbumChips
+              albums={[]}
+              selectedIds={[]}
+              onChange={() => {}}
+              disabled={pending}
+              onCreate={async (name) => {
+                const created = await createTagAndReturn(name);
+                setCatalog((current) =>
+                  current.some((item) => item.id === created.id)
+                    ? current
+                    : [...current, created],
+                );
+                await applyBulkTag(created.id);
+                return created;
+              }}
+            />
           </span>
         </div>
       )}
@@ -78,7 +96,7 @@ export function PhotoManager({
           <AdminPhotoCard
             key={entry.photo.id}
             photo={entry.photo}
-            tags={tags}
+            tags={catalog}
             photoTagIds={entry.tagIds}
             publicReason={entry.publicReason}
             bestOfThreshold={bestOfThreshold}

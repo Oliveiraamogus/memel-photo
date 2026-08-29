@@ -40,16 +40,7 @@ export default async function AdminAlbumsPage() {
           <label className="label" htmlFor="title">
             New album
           </label>
-          <input id="title" name="title" className="field" placeholder="Family Vacation 2026" required />
-        </div>
-        <div>
-          <label className="label" htmlFor="source">
-            Contents
-          </label>
-          <select id="source" name="source" className="field" defaultValue="manual">
-            <option value="manual">Picked by hand, ordered</option>
-            <option value="rule">Matched by a rule</option>
-          </select>
+          <input id="title" name="title" className="field" placeholder="Portugal" required />
         </div>
         <div>
           <label className="label" htmlFor="visibility">

@@ -1,8 +1,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { type Database, db, execRows } from "@/lib/db";
-import { album, albumAccess, user } from "@/lib/db/schema";
-import { datedAlbumSlug, datedAlbumTitle, endOfUtcDay, startOfUtcDay } from "@/lib/slug";
+import { album, albumAccess, albumPhoto, albumRuleTag, photoTag, tag, user } from "@/lib/db/schema";
+import {
+  datedAlbumSlug,
+  datedAlbumTitle,
+  endOfUtcDay,
+  slugify,
+  startOfUtcDay,
+  uniqueSlug,
+} from "@/lib/slug";
 
 /**
  * Resolves album rules into `album_photo_resolved`, the table every read query
@@ -269,6 +276,126 @@ export async function restoreDatedAlbumWindows(database: Database = db) {
       .update(album)
       .set({ ruleDateFrom: from, ruleDateTo: to, source: "rule", updatedAt: new Date() })
       .where(eq(album.id, row.id));
+  }
+}
+
+/**
+ * A named collection album is 1:1 with a tag. Tagging a photo with that name
+ * is what puts it in the album.
+ */
+export async function ensureCollectionForTag(
+  name: string,
+  options: { visibility?: "public" | "unlisted" | "restricted" } = {},
+  database: Database = db,
+): Promise<{ tagId: string; albumId: string }> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("A name is required");
+  const tagSlug = slugify(trimmed) || "untitled";
+
+  let [existingTag] = await database.select().from(tag).where(eq(tag.slug, tagSlug)).limit(1);
+  if (!existingTag) {
+    const [inserted] = await database
+      .insert(tag)
+      .values({ name: trimmed, slug: tagSlug })
+      .onConflictDoNothing()
+      .returning();
+    existingTag =
+      inserted ??
+      (await database.select().from(tag).where(eq(tag.slug, tagSlug)).limit(1))[0];
+  }
+  if (!existingTag) throw new Error("Could not create tag");
+
+  const linked = await execRows<{ album_id: string }>(
+    database,
+    sql`
+      select a.id as album_id
+      from album a
+      join album_rule_tag art on art.album_id = a.id
+      where a.kind = 'collection' and art.tag_id = ${existingTag.id}
+      limit 1
+    `,
+  );
+  if (linked[0]) return { tagId: existingTag.id, albumId: linked[0].album_id };
+
+  const taken = new Set(
+    (await database.select({ slug: album.slug }).from(album)).map((row) => row.slug),
+  );
+  const [created] = await database
+    .insert(album)
+    .values({
+      slug: uniqueSlug(tagSlug, taken),
+      title: trimmed,
+      visibility: options.visibility ?? "restricted",
+      kind: "collection",
+      source: "rule",
+      publishedAt: new Date(),
+    })
+    .returning({ id: album.id });
+
+  await database
+    .insert(albumRuleTag)
+    .values({ albumId: created.id, tagId: existingTag.id });
+  await grantAdminsOnAlbum(created.id, database);
+  await recomputeAlbum(created.id, database);
+  return { tagId: existingTag.id, albumId: created.id };
+}
+
+export async function collectionTagId(albumId: string, database: Database = db) {
+  const [row] = await database
+    .select({ tagId: albumRuleTag.tagId })
+    .from(albumRuleTag)
+    .where(eq(albumRuleTag.albumId, albumId))
+    .limit(1);
+  return row?.tagId ?? null;
+}
+
+/** Pair every tag with a collection album; convert leftover manual collections. */
+export async function backfillCollectionAlbums(database: Database = db) {
+  const manuals = await database
+    .select()
+    .from(album)
+    .where(and(eq(album.kind, "collection"), eq(album.source, "manual")));
+
+  for (const row of manuals) {
+    const tagSlug = slugify(row.title) || "untitled";
+    let [existingTag] = await database.select().from(tag).where(eq(tag.slug, tagSlug)).limit(1);
+    if (!existingTag) {
+      const [inserted] = await database
+        .insert(tag)
+        .values({ name: row.title, slug: tagSlug })
+        .onConflictDoNothing()
+        .returning();
+      existingTag =
+        inserted ??
+        (await database.select().from(tag).where(eq(tag.slug, tagSlug)).limit(1))[0];
+    }
+    if (!existingTag) continue;
+
+    await database
+      .insert(albumRuleTag)
+      .values({ albumId: row.id, tagId: existingTag.id })
+      .onConflictDoNothing();
+
+    const members = await database
+      .select({ photoId: albumPhoto.photoId })
+      .from(albumPhoto)
+      .where(and(eq(albumPhoto.albumId, row.id), eq(albumPhoto.mode, "include")));
+    if (members.length > 0) {
+      await database
+        .insert(photoTag)
+        .values(members.map((member) => ({ photoId: member.photoId, tagId: existingTag.id })))
+        .onConflictDoNothing();
+    }
+
+    await database
+      .update(album)
+      .set({ source: "rule", updatedAt: new Date() })
+      .where(eq(album.id, row.id));
+  }
+
+  const tags = await database.select({ name: tag.name }).from(tag);
+  for (const row of tags) {
+    await ensureCollectionForTag(row.name, {}, database);
   }
 }
 

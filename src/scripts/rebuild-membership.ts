@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db, pool } from "@/lib/db";
-import { recomputeAllAlbums, restoreDatedAlbumWindows, grantAdminsOnAllAlbums } from "@/lib/membership";
+import { recomputeAllAlbums, restoreDatedAlbumWindows, grantAdminsOnAllAlbums, backfillCollectionAlbums } from "@/lib/membership";
 
 /**
  * Recomputes every album from scratch. The materialised membership table is
@@ -9,6 +9,7 @@ import { recomputeAllAlbums, restoreDatedAlbumWindows, grantAdminsOnAllAlbums } 
  */
 try {
   await restoreDatedAlbumWindows(db);
+  await backfillCollectionAlbums(db);
   await grantAdminsOnAllAlbums(db);
   const count = await recomputeAllAlbums(db);
   console.log(`Rebuilt membership for ${count} album(s).`);

@@ -27,8 +27,8 @@ export default async function AdminTagsPage() {
     <div>
       <h1 className="mb-1 text-xl font-medium">Tags</h1>
       <p className="mb-6 max-w-2xl text-sm text-[var(--color-muted)]">
-        Tags are what rule albums match on. Deleting one changes what those albums contain,
-        which can make photos public or private.
+        A tag is a collection album. Creating one here (or while tagging a photo) makes
+        an album of the same name; tagging a photo puts it in that album.
       </p>
 
       <form action={createTag} className="panel mb-8 flex items-end gap-3 p-4">

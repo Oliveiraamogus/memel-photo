@@ -31,7 +31,7 @@ export default async function AdminPhotosPage({
         <div>
           <h1 className="text-xl font-medium">Photos</h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">
-            Rating and tagging both decide what rule albums pick up, so each save shows
+            Rating and albums both decide what is published, so each save shows
             what it would publish before writing anything.
           </p>
         </div>

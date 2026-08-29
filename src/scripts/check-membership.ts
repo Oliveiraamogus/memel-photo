@@ -27,7 +27,7 @@ import {
   tag,
   user,
 } from "@/lib/db/schema";
-import { ensureDatedAlbum, recomputeAllAlbums, restoreDatedAlbumWindows, unfiledPhotoIds } from "@/lib/membership";
+import { ensureDatedAlbum, ensureCollectionForTag, recomputeAllAlbums, restoreDatedAlbumWindows, unfiledPhotoIds } from "@/lib/membership";
 import { startOfUtcDay } from "@/lib/slug";
 
 const client = new PGlite();
@@ -195,6 +195,14 @@ check(
   "tag rule collects only the tagged photo",
   portraitContents.length === 1 && portraitContents[0] === p1.id,
   portraitContents.join(","),
+);
+
+const street = await ensureCollectionForTag("Street", {}, db);
+await db.insert(photoTag).values({ photoId: p2.id, tagId: street.tagId });
+await recomputeAllAlbums(db);
+check(
+  "tagging a photo files it in that collection album",
+  (await contents(street.albumId)).includes(p2.id),
 );
 
 const vacationContents = await contents(vacation.id);

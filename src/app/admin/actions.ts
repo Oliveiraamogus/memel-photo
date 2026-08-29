@@ -4,7 +4,7 @@ import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { type Database, db } from "@/lib/db";
+import { type Database, db, execRows } from "@/lib/db";
 import {
   album,
   albumAccess,
@@ -17,13 +17,20 @@ import {
   tag,
   user,
 } from "@/lib/db/schema";
-import { recomputeAlbum, recomputeAllAlbums, recomputeForPhoto, grantAdminsOnAlbum } from "@/lib/membership";
+import {
+  backfillCollectionAlbums,
+  collectionTagId,
+  ensureCollectionForTag,
+  recomputeAlbum,
+  recomputeAllAlbums,
+  recomputeForPhoto,
+} from "@/lib/membership";
 import { previewVisibilityDelta, type VisibilityDelta } from "@/lib/publish-guard";
 import { enqueueRecomputeMembership } from "@/lib/queue";
 import { MAX_HALF } from "@/lib/rating";
 import { BUCKET_DERIVED, BUCKET_ORIGINALS, deleteObjects } from "@/lib/s3";
 import { requireAdmin } from "@/lib/session";
-import { slugify, uniqueSlug, parseRuleDateBound } from "@/lib/slug";
+import { parseRuleDateBound, slugify } from "@/lib/slug";
 
 /**
  * Membership is recomputed inline here rather than only through the queue, so
@@ -49,11 +56,6 @@ async function refreshForAlbum(albumId: string) {
   revalidatePath("/", "layout");
 }
 
-async function takenSlugs() {
-  const rows = await db.select({ slug: album.slug }).from(album);
-  return new Set(rows.map((r) => r.slug));
-}
-
 /* ------------------------------------------------------------------ albums */
 
 export async function createAlbum(formData: FormData) {
@@ -62,28 +64,18 @@ export async function createAlbum(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   if (!title) throw new Error("A title is required");
 
-  const source = formData.get("source") === "rule" ? "rule" : "manual";
   const visibility = String(formData.get("visibility") ?? "restricted") as
     | "public"
     | "unlisted"
     | "restricted";
 
-  const [created] = await db
-    .insert(album)
-    .values({
-      slug: uniqueSlug(slugify(title), await takenSlugs()),
-      title,
-      description: String(formData.get("description") ?? "").trim() || null,
-      visibility,
-      kind: "collection",
-      source,
-      publishedAt: new Date(),
-    })
-    .returning({ id: album.id });
-
-  await grantAdminsOnAlbum(created.id);
-  await refreshForAlbum(created.id);
-  redirect(`/admin/albums/${created.id}`);
+  const { albumId } = await ensureCollectionForTag(title, { visibility });
+  await db
+    .update(album)
+    .set({ visibility, updatedAt: new Date() })
+    .where(eq(album.id, albumId));
+  await refreshForAlbum(albumId);
+  redirect(`/admin/albums/${albumId}`);
 }
 
 export type AlbumPatch = {
@@ -135,18 +127,28 @@ async function applyAlbumChange(
     .limit(1);
 
   const values = patchToValues(patch);
-  // The date window is the identity of a dated album; editing it (or flipping
-  // the album to "picked by hand") would empty it. Visibility and title stay.
-  if (current?.kind === "dated") {
+  if (current?.kind === "dated" || current?.kind === "collection") {
     delete values.source;
     delete values.ruleDateFrom;
     delete values.ruleDateTo;
     delete values.ruleMinRatingHalf;
   }
 
+  if (patch.title !== undefined && current?.kind === "collection") {
+    const tagId = await collectionTagId(albumId, target);
+    if (tagId) {
+      await target.update(tag).set({ name: patch.title }).where(eq(tag.id, tagId));
+    }
+  }
+
   await target.update(album).set(values).where(eq(album.id, albumId));
 
-  if (ruleTagIds && current?.kind !== "dated" && current?.kind !== "best_of") {
+  if (
+    ruleTagIds &&
+    current?.kind !== "dated" &&
+    current?.kind !== "best_of" &&
+    current?.kind !== "collection"
+  ) {
     await target.execute(sql`delete from album_rule_tag where album_id = ${albumId}`);
     if (ruleTagIds.length > 0) {
       await target.execute(sql`
@@ -230,11 +232,25 @@ export async function addPhotosToAlbum(albumId: string, photoIds: string[]) {
   if (photoIds.length === 0) return;
 
   const [current] = await db
+    .select({ kind: album.kind, source: album.source })
+    .from(album)
+    .where(eq(album.id, albumId))
+    .limit(1);
+  if (!current) return;
+
+  const tagId = await collectionTagId(albumId);
+  if (current.kind === "collection" && tagId) {
+    await applyBulkTag(photoIds, tagId, db);
+    await refreshForAlbum(albumId);
+    return;
+  }
+
+  const [row] = await db
     .select({ next: max(albumPhoto.sortIndex) })
     .from(albumPhoto)
     .where(eq(albumPhoto.albumId, albumId));
 
-  let index = (current?.next ?? -1) + 1;
+  let index = (row?.next ?? -1) + 1;
 
   await db
     .insert(albumPhoto)
@@ -263,6 +279,15 @@ export async function removePhotoFromAlbum(albumId: string, photoId: string) {
 
   const [target] = await db.select().from(album).where(eq(album.id, albumId)).limit(1);
   if (!target) return;
+
+  const tagId = await collectionTagId(albumId);
+  if (target.kind === "collection" && tagId) {
+    await db
+      .delete(photoTag)
+      .where(and(eq(photoTag.photoId, photoId), eq(photoTag.tagId, tagId)));
+    await refreshForAlbum(albumId);
+    return;
+  }
 
   await db
     .delete(albumPhoto)
@@ -381,24 +406,49 @@ export async function createTag(formData: FormData) {
   await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("A name is required");
+  await ensureCollectionForTag(name);
+  revalidatePath("/", "layout");
+}
 
-  await db
-    .insert(tag)
-    .values({ name, slug: slugify(name) })
-    .onConflictDoNothing();
-  revalidatePath("/admin/tags");
+export async function createTagAndReturn(name: string) {
+  await requireAdmin();
+  const created = await ensureCollectionForTag(name);
+  revalidatePath("/", "layout");
+  return { id: created.tagId, name: name.trim() };
 }
 
 export async function renameTag(tagId: string, name: string) {
   await requireAdmin();
-  await db.update(tag).set({ name: name.trim() }).where(eq(tag.id, tagId));
-  revalidatePath("/admin/tags");
+  const trimmed = name.trim();
+  await db.update(tag).set({ name: trimmed }).where(eq(tag.id, tagId));
+  await db.execute(sql`
+    update album set title = ${trimmed}, updated_at = now()
+    where kind = 'collection'
+      and id in (select album_id from album_rule_tag where tag_id = ${tagId})
+  `);
+  revalidatePath("/", "layout");
 }
 
 export async function deleteTag(tagId: string) {
   await requireAdmin();
+  const paired = await execRows<{ album_id: string }>(
+    db,
+    sql`
+      select art.album_id
+      from album_rule_tag art
+      join album a on a.id = art.album_id
+      where art.tag_id = ${tagId}
+        and a.kind = 'collection'
+        and not exists (
+          select 1 from album_rule_tag other
+          where other.album_id = art.album_id and other.tag_id <> ${tagId}
+        )
+    `,
+  );
+  for (const row of paired) {
+    await db.delete(album).where(eq(album.id, row.album_id));
+  }
   await db.delete(tag).where(eq(tag.id, tagId));
-  // Rule albums built on this tag now match differently.
   await recomputeAllAlbums(db);
   revalidatePath("/", "layout");
 }
@@ -515,6 +565,7 @@ export async function removeGroupMember(groupId: string, userId: string) {
 
 export async function rebuildMembership() {
   await requireAdmin();
+  await backfillCollectionAlbums(db);
   const count = await recomputeAllAlbums(db);
   revalidatePath("/", "layout");
   return count;

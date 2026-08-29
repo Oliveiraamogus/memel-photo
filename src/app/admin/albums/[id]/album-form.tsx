@@ -48,8 +48,10 @@ export function AlbumForm({
 
   const isBestOf = album.kind === "best_of";
   const isDated = album.kind === "dated";
+  const isCollection = album.kind === "collection";
+  const lockRules = isDated || isCollection;
 
-  const patch: AlbumPatch = isDated
+  const patch: AlbumPatch = lockRules
     ? {
         title: form.title,
         description: form.description || null,
@@ -72,7 +74,11 @@ export function AlbumForm({
       await updateAlbum(
         album.id,
         patch,
-        isDated || isBestOf ? undefined : form.source === "rule" ? selectedTags : [],
+        isDated || isBestOf || isCollection
+          ? undefined
+          : form.source === "rule"
+            ? selectedTags
+            : [],
       );
       setDelta(null);
       setSaved(true);
@@ -85,7 +91,11 @@ export function AlbumForm({
     const result = await previewAlbumChange(
       album.id,
       patch,
-      isDated || isBestOf ? undefined : form.source === "rule" ? selectedTags : [],
+      isDated || isBestOf || isCollection
+          ? undefined
+          : form.source === "rule"
+            ? selectedTags
+            : [],
     );
     if (result.becomingPublic.length === 0 && result.noLongerPublic.length === 0) {
       save();
@@ -148,7 +158,7 @@ export function AlbumForm({
           </select>
         </div>
 
-        {!isBestOf && !isDated && (
+        {!isBestOf && !lockRules && (
           <div>
             <label className="label" htmlFor="source">
               Contents
@@ -173,7 +183,14 @@ export function AlbumForm({
         </p>
       )}
 
-      {form.source === "rule" && !isDated && (
+      {isCollection && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Photos belong here when they are tagged with this album&apos;s name. Add or
+          remove them from the photo library, or with Add photos below.
+        </p>
+      )}
+
+      {form.source === "rule" && !lockRules && (
         <fieldset className="space-y-4 border-t border-[var(--color-line)] pt-4">
           <legend className="label">Rule — all conditions must hold</legend>
 
