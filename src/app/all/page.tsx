@@ -110,6 +110,7 @@ export default async function AllPhotosPage({
           sort={activeSort}
           tag={activeTag}
           canVote={Boolean(viewer)}
+          canManage={Boolean(viewer?.isAdmin)}
         />
       </main>
     </>

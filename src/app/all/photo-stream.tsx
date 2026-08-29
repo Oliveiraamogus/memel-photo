@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { deletePhotos } from "@/app/admin/actions";
 import type { GalleryPhoto } from "@/lib/photos";
+import { toggleRange } from "@/lib/selection";
 import { datedAlbumTitle } from "@/lib/slug";
 import { Lightbox } from "@/components/lightbox";
 import { PhotoGrid } from "@/components/photo-grid";
+import { SelectionBar } from "@/components/selection-bar";
 
 type Cursor = { id: string; takenAt: string | null; ratingHalf: number | null } | null;
 
@@ -32,6 +35,7 @@ export function PhotoStream({
   sort,
   tag,
   canVote,
+  canManage = false,
 }: {
   initialPhotos: GalleryPhoto[];
   initialCursor: Cursor;
@@ -39,12 +43,15 @@ export function PhotoStream({
   sort: string;
   tag: string | null;
   canVote: boolean;
+  canManage?: boolean;
 }) {
   const [photos, setPhotos] = useState(initialPhotos);
   const [cursor, setCursor] = useState<Cursor>(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const anchorRef = useRef<number | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +59,8 @@ export function PhotoStream({
     setCursor(initialCursor);
     setHasMore(initialHasMore);
     setOpenIndex(null);
+    setSelected(new Set());
+    anchorRef.current = null;
   }, [initialPhotos, initialCursor, initialHasMore]);
 
   const loadMore = useCallback(async () => {
@@ -86,6 +95,19 @@ export function PhotoStream({
     return () => observer.disconnect();
   }, [loadMore]);
 
+  function toggleSelect(id: string, globalIndex: number, shift: boolean) {
+    setSelected((current) =>
+      toggleRange(
+        current,
+        photos.map((photo) => photo.id),
+        globalIndex,
+        shift,
+        anchorRef.current,
+      ),
+    );
+    anchorRef.current = globalIndex;
+  }
+
   const grouped = sort === "rating" ? null : groupByDay(photos);
 
   if (photos.length === 0) {
@@ -98,6 +120,27 @@ export function PhotoStream({
 
   return (
     <>
+      {canManage && (
+        <SelectionBar
+          count={selected.size}
+          onClear={() => setSelected(new Set())}
+          onDelete={async () => {
+            const ids = [...selected];
+            const removing = new Set(ids);
+            setPhotos((current) => current.filter((photo) => !removing.has(photo.id)));
+            setSelected(new Set());
+            setOpenIndex((current) => {
+              if (current === null) return null;
+              if (removing.has(photos[current]?.id)) return null;
+              const remaining = photos.filter((photo) => !removing.has(photo.id));
+              const still = remaining.findIndex((photo) => photo.id === photos[current]?.id);
+              return still >= 0 ? still : null;
+            });
+            await deletePhotos(ids);
+          }}
+        />
+      )}
+
       {grouped ? (
         grouped.map((group, groupIndex) => {
           const offset = grouped
@@ -112,6 +155,9 @@ export function PhotoStream({
               <PhotoGrid
                 photos={group.photos}
                 canVote={canVote}
+                canManage={canManage}
+                selectedIds={selected}
+                onToggleSelect={(id, index, shift) => toggleSelect(id, offset + index, shift)}
                 onOpen={(index) => setOpenIndex(offset + index)}
               />
             </section>
@@ -121,6 +167,9 @@ export function PhotoStream({
         <PhotoGrid
           photos={photos}
           canVote={canVote}
+          canManage={canManage}
+          selectedIds={selected}
+          onToggleSelect={(id, index, shift) => toggleSelect(id, index, shift)}
           onOpen={(index) => setOpenIndex(index)}
         />
       )}

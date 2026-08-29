@@ -376,9 +376,7 @@ export async function setPhotoCaption(photoId: string, caption: string) {
   revalidatePath("/", "layout");
 }
 
-export async function deletePhoto(photoId: string) {
-  await requireAdmin();
-
+async function deletePhotoFiles(photoId: string) {
   const [target] = await db
     .select({ originalKey: photo.originalKey })
     .from(photo)
@@ -397,6 +395,18 @@ export async function deletePhoto(photoId: string) {
   await deleteObjects(BUCKET_ORIGINALS, [target.originalKey]);
 
   await db.delete(photo).where(eq(photo.id, photoId));
+}
+
+export async function deletePhoto(photoId: string) {
+  await requireAdmin();
+  await deletePhotoFiles(photoId);
+  revalidatePath("/", "layout");
+}
+
+export async function deletePhotos(ids: string[]) {
+  await requireAdmin();
+  const unique = [...new Set(ids.filter(Boolean))];
+  for (const id of unique) await deletePhotoFiles(id);
   revalidatePath("/", "layout");
 }
 

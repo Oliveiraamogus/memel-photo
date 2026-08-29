@@ -78,7 +78,11 @@ export default async function AlbumPage({
           </nav>
         </div>
 
-        <PhotoGrid photos={photos} canVote={Boolean(viewer)} />
+        <PhotoGrid
+          photos={photos}
+          canVote={Boolean(viewer)}
+          canManage={Boolean(viewer?.isAdmin)}
+        />
       </main>
     </>
   );

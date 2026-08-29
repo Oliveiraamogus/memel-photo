@@ -41,7 +41,7 @@ export function AdminPhotoCard({
   publicReason: string | null;
   bestOfThreshold: number;
   selected?: boolean;
-  onSelect?: (id: string, selected: boolean) => void;
+  onSelect?: (id: string, shift: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
@@ -89,11 +89,17 @@ export function AdminPhotoCard({
           </span>
         )}
         {onSelect && (
-          <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
+          <label
+            className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
+            onClick={(event) => {
+              event.preventDefault();
+              onSelect?.(photo.id, event.shiftKey);
+            }}
+          >
             <input
               type="checkbox"
               checked={selected ?? false}
-              onChange={(e) => onSelect(photo.id, e.target.checked)}
+              readOnly
               aria-label={`Select ${photo.filename}`}
             />
           </label>

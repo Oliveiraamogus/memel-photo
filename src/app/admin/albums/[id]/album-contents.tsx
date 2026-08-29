@@ -15,12 +15,15 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
+  deletePhotos,
   removePhotoFromAlbum,
   reorderAlbumPhotos,
   setAlbumCover,
 } from "@/app/admin/actions";
+import { toggleRange } from "@/lib/selection";
+import { SelectionBar } from "@/components/selection-bar";
 
 export type ContentPhoto = {
   id: string;
@@ -36,11 +39,15 @@ function SortableTile({
   albumId,
   sortable,
   isCover,
+  selected,
+  onToggle,
 }: {
   photo: ContentPhoto;
   albumId: string;
   sortable: boolean;
   isCover: boolean;
+  selected: boolean;
+  onToggle: (shift: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -63,6 +70,17 @@ function SortableTile({
         className="aspect-square w-full object-cover"
         {...(sortable ? { ...attributes, ...listeners } : {})}
       />
+      <label
+        className="absolute right-1 top-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(event.shiftKey);
+        }}
+      >
+        <input type="checkbox" checked={selected} readOnly aria-label={`Select ${photo.filename}`} />
+      </label>
       {isCover && (
         <span className="absolute left-1 top-1 rounded bg-[var(--color-overlay-soft)] px-1.5 py-0.5 text-[10px]">
           cover
@@ -105,7 +123,9 @@ export function AlbumContents({
   coverPhotoId: string | null;
 }) {
   const [photos, setPhotos] = useState(initial);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [, startTransition] = useTransition();
+  const anchorRef = useRef<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -121,6 +141,19 @@ export function AlbumContents({
     startTransition(() => void reorderAlbumPhotos(albumId, next.map((p) => p.id)));
   }
 
+  function toggle(index: number, shift: boolean) {
+    setSelected((current) =>
+      toggleRange(
+        current,
+        photos.map((photo) => photo.id),
+        index,
+        shift,
+        anchorRef.current,
+      ),
+    );
+    anchorRef.current = index;
+  }
+
   if (photos.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-[var(--color-muted)]">
@@ -133,25 +166,42 @@ export function AlbumContents({
 
   const grid = (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-      {photos.map((photo) => (
+      {photos.map((photo, index) => (
         <SortableTile
           key={photo.id}
           photo={photo}
           albumId={albumId}
           sortable={source === "manual"}
           isCover={photo.id === coverPhotoId}
+          selected={selected.has(photo.id)}
+          onToggle={(shift) => toggle(index, shift)}
         />
       ))}
     </div>
   );
 
-  if (source !== "manual") return grid;
-
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
-        {grid}
-      </SortableContext>
-    </DndContext>
+    <>
+      <SelectionBar
+        count={selected.size}
+        onClear={() => setSelected(new Set())}
+        onDelete={async () => {
+          const ids = [...selected];
+          const removing = new Set(ids);
+          await deletePhotos(ids);
+          setPhotos((current) => current.filter((photo) => !removing.has(photo.id)));
+          setSelected(new Set());
+        }}
+      />
+      {source !== "manual" ? (
+        grid
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
+            {grid}
+          </SortableContext>
+        </DndContext>
+      )}
+    </>
   );
 }
