@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatAverage, formatStars, parseAverage } from "@/lib/rating";
 import type { GalleryPhoto } from "@/lib/photos";
 import { StarDisplay, StarInput } from "./stars";
@@ -13,6 +13,188 @@ type Details = {
   ratingCount: number;
   myRatingHalf: number | null;
 };
+
+const MIN_SCALE = 1;
+const MAX_SCALE = 8;
+const TOGGLE_SCALE = 2.5;
+
+type Transform = { scale: number; x: number; y: number };
+
+function clampScale(value: number) {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+}
+
+function zoomToward(
+  prev: Transform,
+  nextScale: number,
+  clientX: number,
+  clientY: number,
+  image: DOMRect,
+): Transform {
+  const scale = clampScale(nextScale);
+  if (scale <= MIN_SCALE) return { scale: MIN_SCALE, x: 0, y: 0 };
+  const ratio = scale / prev.scale;
+  const cx = image.left + image.width / 2;
+  const cy = image.top + image.height / 2;
+  return {
+    scale,
+    x: prev.x + (clientX - cx) * (1 - ratio),
+    y: prev.y + (clientY - cy) * (1 - ratio),
+  };
+}
+
+function LightboxImage({ photo }: { photo: GalleryPhoto }) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const pinch = useRef<{ distance: number; scale: number } | null>(null);
+  const lastTap = useRef(0);
+  const moved = useRef(false);
+
+  const applyZoom = useCallback((clientX: number, clientY: number, nextScale: number) => {
+    const image = imageRef.current;
+    if (!image) return;
+    setTransform((prev) => zoomToward(prev, nextScale, clientX, clientY, image.getBoundingClientRect()));
+  }, []);
+
+  useEffect(() => {
+    setTransform({ scale: 1, x: 0, y: 0 });
+    pointers.current.clear();
+    pan.current = null;
+    pinch.current = null;
+  }, [photo.id]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      applyZoom(event.clientX, event.clientY, transformRef.current.scale * factor);
+    };
+    stage.addEventListener("wheel", onWheel, { passive: false });
+    return () => stage.removeEventListener("wheel", onWheel);
+  }, [applyZoom]);
+
+  function pointerList() {
+    return [...pointers.current.values()];
+  }
+
+  function onPointerDown(event: React.PointerEvent) {
+    if (event.button !== 0) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointers.current.size === 2) {
+      const [a, b] = pointerList();
+      pinch.current = {
+        distance: Math.hypot(a.x - b.x, a.y - b.y),
+        scale: transformRef.current.scale,
+      };
+      pan.current = null;
+      return;
+    }
+
+    moved.current = false;
+    if (transformRef.current.scale > 1) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      pan.current = {
+        x: event.clientX,
+        y: event.clientY,
+        tx: transformRef.current.x,
+        ty: transformRef.current.y,
+      };
+    }
+  }
+
+  function onPointerMove(event: React.PointerEvent) {
+    if (pointers.current.has(event.pointerId)) {
+      pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    if (pointers.current.size === 2 && pinch.current) {
+      const [a, b] = pointerList();
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      if (distance < 1 || pinch.current.distance < 1) return;
+      applyZoom(
+        (a.x + b.x) / 2,
+        (a.y + b.y) / 2,
+        pinch.current.scale * (distance / pinch.current.distance),
+      );
+      return;
+    }
+
+    if (pan.current && pointers.current.size === 1) {
+      const dx = event.clientX - pan.current.x;
+      const dy = event.clientY - pan.current.y;
+      if (Math.hypot(dx, dy) > 3) moved.current = true;
+      setTransform({
+        scale: transformRef.current.scale,
+        x: pan.current.tx + dx,
+        y: pan.current.ty + dy,
+      });
+    }
+  }
+
+  function onPointerUp(event: React.PointerEvent) {
+    pointers.current.delete(event.pointerId);
+    pan.current = null;
+    if (pointers.current.size < 2) pinch.current = null;
+
+    if (event.pointerType === "touch" && !moved.current && pointers.current.size === 0) {
+      const now = Date.now();
+      if (now - lastTap.current < 280) {
+        toggleZoom(event.clientX, event.clientY);
+        lastTap.current = 0;
+      } else {
+        lastTap.current = now;
+      }
+    }
+  }
+
+  function toggleZoom(clientX: number, clientY: number) {
+    const next = transformRef.current.scale > 1.05 ? MIN_SCALE : TOGGLE_SCALE;
+    applyZoom(clientX, clientY, next);
+  }
+
+  function onDoubleClick(event: React.MouseEvent) {
+    event.preventDefault();
+    toggleZoom(event.clientX, event.clientY);
+  }
+
+  const zoomed = transform.scale > 1.01;
+
+  return (
+    <div
+      ref={stageRef}
+      className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden"
+    >
+      <img
+        ref={imageRef}
+        src={photo.src}
+        srcSet={photo.srcset}
+        sizes="100vw"
+        alt={photo.caption ?? photo.filename}
+        draggable={false}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={onDoubleClick}
+        className="max-h-full max-w-full object-contain will-change-transform"
+        style={{
+          transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+          cursor: zoomed ? "grab" : "zoom-in",
+          touchAction: "none",
+        }}
+      />
+    </div>
+  );
+}
 
 export function Lightbox({
   photo,
@@ -130,13 +312,7 @@ export function Lightbox({
           </button>
         )}
 
-        <img
-          src={photo.src}
-          srcSet={photo.srcset}
-          sizes="100vw"
-          alt={photo.caption ?? photo.filename}
-          className="max-h-full max-w-full object-contain"
-        />
+        <LightboxImage photo={photo} />
 
         {hasNext && (
           <button
