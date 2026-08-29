@@ -14,21 +14,59 @@ type Item = {
 
 const MAX_CONCURRENT = 3;
 
+/** Same MIME on presign and PUT — a mismatch makes Garage return 400. */
+function uploadContentType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+  const byExt: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    avif: "image/avif",
+    tiff: "image/tiff",
+    tif: "image/tiff",
+    heic: "image/heic",
+    heif: "image/heic",
+    dng: "image/x-adobe-dng",
+  };
+  return byExt[ext] ?? "application/octet-stream";
+}
+
 /** fetch gives no upload progress, so the PUT goes through XHR. */
-function putWithProgress(url: string, file: File, onProgress: (pct: number) => void) {
+function putWithProgress(
+  url: string,
+  file: File,
+  contentType: string,
+  onProgress: (pct: number) => void,
+) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    // Must match the Content-Type baked into the presigned URL exactly.
+    xhr.setRequestHeader("Content-Type", contentType);
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
     });
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Storage rejected the upload (${xhr.status})`));
+      else {
+        const detail = xhr.responseText?.trim().slice(0, 200);
+        reject(
+          new Error(
+            detail
+              ? `Storage rejected the upload (${xhr.status}): ${detail}`
+              : `Storage rejected the upload (${xhr.status})`,
+          ),
+        );
+      }
     });
     xhr.addEventListener("error", () =>
-      reject(new Error("Network error reaching storage. Check S3_ENDPOINT_PUBLIC.")),
+      reject(
+        new Error(
+          "Network error reaching storage (often missing Garage CORS or wrong S3_ENDPOINT_PUBLIC).",
+        ),
+      ),
     );
     xhr.send(file);
   });
@@ -58,14 +96,16 @@ export function Uploader({ tags }: { tags: { id: string; name: string }[] }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             filename: item.file.name,
-            contentType: item.file.type || "image/jpeg",
+            contentType: uploadContentType(item.file),
             bytes: item.file.size,
           }),
         });
         if (!presignResponse.ok) throw new Error(await readError(presignResponse));
-        const { photoId, key, url } = await presignResponse.json();
+        const { photoId, key, url, contentType } = await presignResponse.json();
 
-        await putWithProgress(url, item.file, (pct) => update(item.id, { progress: pct }));
+        await putWithProgress(url, item.file, contentType, (pct) =>
+          update(item.id, { progress: pct }),
+        );
 
         update(item.id, { status: "processing", progress: 100 });
 

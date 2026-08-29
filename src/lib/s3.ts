@@ -18,18 +18,24 @@ const credentials = {
  * endpoint; anything the server fetches itself goes over the internal one and
  * never leaves the Docker network.
  */
-const publicClient = new S3Client({
+const clientDefaults = {
   region: config.s3.region,
-  endpoint: config.s3.endpointPublic,
   credentials,
-  forcePathStyle: true,
+  forcePathStyle: true as const,
+  // Default SDK checksums break browser presigned PUTs (signed headers the XHR
+  // does not send). Server-side puts still checksum when required.
+  requestChecksumCalculation: "WHEN_REQUIRED" as const,
+  responseChecksumValidation: "WHEN_REQUIRED" as const,
+};
+
+const publicClient = new S3Client({
+  ...clientDefaults,
+  endpoint: config.s3.endpointPublic,
 });
 
 const internalClient = new S3Client({
-  region: config.s3.region,
+  ...clientDefaults,
   endpoint: config.s3.endpointInternal,
-  credentials,
-  forcePathStyle: true,
 });
 
 export const s3 = internalClient;

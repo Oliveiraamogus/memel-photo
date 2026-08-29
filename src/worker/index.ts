@@ -13,9 +13,16 @@ import { markPhotoFailed, processPhoto } from "./process-photo";
 
 const boss = await getBoss();
 
+// How many photos this process encodes at once. sharp is CPU-heavy; 3 is a
+// good default on a laptop or small CT. Override with PHOTO_WORKER_CONCURRENCY.
+const photoConcurrency = Math.max(
+  1,
+  Number.parseInt(process.env.PHOTO_WORKER_CONCURRENCY ?? "3", 10) || 3,
+);
+
 await boss.work<ProcessPhotoJob>(
   QUEUE_PROCESS_PHOTO,
-  { batchSize: 1 },
+  { batchSize: 1, localConcurrency: photoConcurrency },
   async ([job]: Job<ProcessPhotoJob>[]) => {
     const { photoId } = job.data;
     try {
@@ -44,7 +51,7 @@ await boss.work<RecomputeMembershipJob>(
   },
 );
 
-console.log("[worker] ready");
+console.log(`[worker] ready (photo concurrency ${photoConcurrency})`);
 
 async function shutdown(signal: string) {
   console.log(`[worker] ${signal}, stopping`);

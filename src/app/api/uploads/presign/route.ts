@@ -48,5 +48,5 @@ export async function POST(request: Request) {
   const key = originalKey(photoId, extension);
   const url = await presignUpload(key, contentType);
 
-  return NextResponse.json({ photoId, key, url });
+  return NextResponse.json({ photoId, key, url, contentType });
 }
