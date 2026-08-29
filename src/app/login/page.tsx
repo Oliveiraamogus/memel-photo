@@ -21,7 +21,7 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-6">
       <LoginForm redirectTo={redirectTo} />
-      <Link href="/" className="text-sm text-[var(--color-muted)] hover:text-white">
+      <Link href="/" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-paper)]">
         Back to the gallery
       </Link>
     </main>

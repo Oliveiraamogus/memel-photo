@@ -1,20 +1,61 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0d0d0f;
-  --color-ink-soft: #16161a;
-  --color-line: #26262c;
-  --color-paper: #f4f4f2;
-  --color-muted: #8b8b96;
-  --color-accent: #c8a25a;
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-hover: var(--hover);
+  --color-paper-hover: var(--paper-hover);
+  --color-overlay: var(--overlay);
+  --color-overlay-soft: var(--overlay-soft);
+  --color-thumb: var(--thumb);
+  --color-callout: var(--callout);
 
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
     sans-serif;
 }
 
-:root {
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
+  --ink: #0d0d0f;
+  --ink-soft: #16161a;
+  --line: #26262c;
+  --paper: #f4f4f2;
+  --muted: #8b8b96;
+  --accent: #c8a25a;
+  --hover: #202027;
+  --paper-hover: #ffffff;
+  --overlay: rgb(0 0 0 / 0.95);
+  --overlay-soft: rgb(0 0 0 / 0.7);
+  --thumb: #101014;
+  --callout: #1c1a16;
+  --danger-border: #7f1d1d;
+  --danger-text: #fca5a5;
+  --danger-hover: #2a1010;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --ink: #f4f4f2;
+  --ink-soft: #ecece8;
+  --line: #d4d4cc;
+  --paper: #16161a;
+  --muted: #6a6a74;
+  --accent: #a07d3a;
+  --hover: #e4e4de;
+  --paper-hover: #000000;
+  --overlay: rgb(0 0 0 / 0.92);
+  --overlay-soft: rgb(0 0 0 / 0.45);
+  --thumb: #e8e8e4;
+  --callout: #f3eee4;
+  --danger-border: #fecaca;
+  --danger-text: #b91c1c;
+  --danger-hover: #fee2e2;
 }
 
 html,
@@ -51,7 +92,7 @@ body {
   }
 
   .btn:hover:not(:disabled) {
-    background: #202027;
+    background: var(--color-hover);
   }
 
   .btn:disabled {
@@ -67,16 +108,16 @@ body {
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #ffffff;
+    background: var(--color-paper-hover);
   }
 
   .btn-danger {
-    border-color: #7f1d1d;
-    color: #fca5a5;
+    border-color: var(--danger-border);
+    color: var(--danger-text);
   }
 
   .btn-danger:hover:not(:disabled) {
-    background: #2a1010;
+    background: var(--danger-hover);
   }
 
   .field {

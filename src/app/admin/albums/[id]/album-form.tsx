@@ -85,7 +85,7 @@ export function AlbumForm({
   return (
     <form onSubmit={submit} className="panel space-y-5 p-5">
       {form.contributesToBestOf && (
-        <p className="rounded border border-[var(--color-accent)] bg-[#1c1a16] px-3 py-2 text-sm">
+        <p className="rounded border border-[var(--color-accent)] bg-[var(--color-callout)] px-3 py-2 text-sm">
           This album feeds Best of. Any photo here rated{" "}
           {formatStars(album.ruleMinRatingHalf ?? 16)} or above is shown publicly, even
           though the album itself is not browsable.

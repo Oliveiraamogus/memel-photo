@@ -23,7 +23,7 @@ export function VisibilityDialog({
   const lost = delta.noLongerPublic;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay-soft)] p-6">
       <div className="panel max-h-[80vh] w-full max-w-2xl overflow-auto p-6">
         <h2 className="mb-1 text-lg font-medium">Check before saving</h2>
         <p className="mb-5 text-sm text-[var(--color-muted)]">

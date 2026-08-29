@@ -55,7 +55,7 @@ export default async function AlbumEditorPage({
     <div>
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <Link href="/admin/albums" className="text-xs text-[var(--color-muted)] hover:text-white">
+          <Link href="/admin/albums" className="text-xs text-[var(--color-muted)] hover:text-[var(--color-paper)]">
             ← Albums
           </Link>
           <h1 className="mt-1 text-xl font-medium">{found.title}</h1>

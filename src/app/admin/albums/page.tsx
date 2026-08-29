@@ -97,7 +97,7 @@ export default async function AdminAlbumsPage() {
               </td>
               <td className="text-right tabular-nums">{album.photo_count}</td>
               <td className="py-2 text-right">
-                <Link href={`/a/${album.slug}`} className="text-xs text-[var(--color-muted)] hover:text-white">
+                <Link href={`/a/${album.slug}`} className="text-xs text-[var(--color-muted)] hover:text-[var(--color-paper)]">
                   View
                 </Link>
               </td>

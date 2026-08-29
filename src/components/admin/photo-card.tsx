@@ -86,7 +86,7 @@ export function AdminPhotoCard({
           </span>
         )}
         {onSelect && (
-          <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-black/60">
+          <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
             <input
               type="checkbox"
               checked={selected ?? false}
@@ -174,7 +174,7 @@ export function AdminPhotoCard({
         ) : (
           <button
             type="button"
-            className="text-xs text-[var(--color-muted)] underline hover:text-white"
+            className="text-xs text-[var(--color-muted)] underline hover:text-[var(--color-paper)]"
             onClick={() => setEditingTags(true)}
           >
             {selectedTags.length > 0

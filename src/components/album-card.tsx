@@ -9,7 +9,7 @@ export function AlbumCard({ album }: { album: AlbumCardData }) {
       href={`/a/${album.slug}`}
       className="panel group block overflow-hidden transition-colors hover:border-[var(--color-accent)]"
     >
-      <div className="aspect-[4/3] w-full overflow-hidden bg-[#101014]">
+      <div className="aspect-[4/3] w-full overflow-hidden bg-[var(--color-thumb)]">
         {album.cover ? (
           <img
             src={album.cover.src}

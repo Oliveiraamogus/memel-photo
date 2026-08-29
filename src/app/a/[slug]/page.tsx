@@ -50,7 +50,7 @@ export default async function AlbumPage({
       <main className="mx-auto max-w-[1600px] px-6 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link href="/" className="text-xs text-[var(--color-muted)] hover:text-white">
+            <Link href="/" className="text-xs text-[var(--color-muted)] hover:text-[var(--color-paper)]">
               ← Albums
             </Link>
             <h1 className="mt-1 text-2xl font-light">{found.title}</h1>

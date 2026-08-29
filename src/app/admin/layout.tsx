@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +31,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
           <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--color-muted)]">
             {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-white">
+              <Link key={item.href} href={item.href} className="hover:text-[var(--color-paper)]">
                 {item.label}
               </Link>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm text-[var(--color-muted)]">
+            <ThemeToggle />
             <span>{viewer.email}</span>
             <SignOutButton />
           </div>

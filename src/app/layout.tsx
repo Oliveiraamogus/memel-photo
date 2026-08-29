@@ -6,10 +6,15 @@ export const metadata: Metadata = {
   description: "Photography portfolio",
 };
 
+const THEME_SCRIPT = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

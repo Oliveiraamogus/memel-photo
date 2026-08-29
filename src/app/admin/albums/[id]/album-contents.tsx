@@ -64,14 +64,14 @@ function SortableTile({
         {...(sortable ? { ...attributes, ...listeners } : {})}
       />
       {isCover && (
-        <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px]">
+        <span className="absolute left-1 top-1 rounded bg-[var(--color-overlay-soft)] px-1.5 py-0.5 text-[10px]">
           cover
         </span>
       )}
       <div className="flex justify-between gap-1 p-1.5 text-[10px]">
         <button
           type="button"
-          className="text-[var(--color-muted)] hover:text-white"
+          className="text-[var(--color-muted)] hover:text-[var(--color-paper)]"
           onClick={() => startTransition(() => void setAlbumCover(albumId, photo.id))}
         >
           Cover

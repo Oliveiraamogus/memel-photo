@@ -179,7 +179,7 @@ export function Uploader({ tags }: { tags: { id: string; name: string }[] }) {
         }}
         onClick={() => inputRef.current?.click()}
         className={`panel flex cursor-pointer flex-col items-center justify-center gap-2 border-dashed px-6 py-16 text-center transition-colors ${
-          dragging ? "border-[var(--color-accent)] bg-[#1c1a16]" : ""
+          dragging ? "border-[var(--color-accent)] bg-[var(--color-callout)]" : ""
         }`}
       >
         <p className="text-base">Drop photos here</p>
@@ -249,7 +249,7 @@ export function Uploader({ tags }: { tags: { id: string; name: string }[] }) {
               <li key={item.id} className="flex items-center gap-4 px-4 py-3 text-sm">
                 <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
                 <span className="w-40">
-                  <span className="block h-1 w-full rounded bg-[#26262c]">
+                  <span className="block h-1 w-full rounded bg-[var(--color-line)]">
                     <span
                       className={`block h-1 rounded transition-all ${
                         item.status === "error" ? "bg-red-500" : "bg-[var(--color-accent)]"

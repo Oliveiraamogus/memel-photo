@@ -38,7 +38,7 @@ export function AddPhotos({ albumId }: { albumId: string }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay-soft)] p-6">
       <div className="panel flex max-h-[80vh] w-full max-w-xl flex-col p-5">
         <h2 className="mb-3 text-sm font-medium">Add photos to this album</h2>
         <input

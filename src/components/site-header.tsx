@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getViewer } from "@/lib/session";
 import { SignOutButton } from "./sign-out-button";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const viewer = await getViewer();
@@ -12,18 +13,19 @@ export async function SiteHeader() {
           {process.env.SITE_TITLE || "Photography"}
         </Link>
         <nav className="flex gap-4 text-sm text-[var(--color-muted)]">
-          <Link href="/" className="hover:text-white">
+          <Link href="/" className="hover:text-[var(--color-paper)]">
             Albums
           </Link>
-          <Link href="/all" className="hover:text-white">
+          <Link href="/all" className="hover:text-[var(--color-paper)]">
             All photos
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm text-[var(--color-muted)]">
+          <ThemeToggle />
           {viewer ? (
             <>
               {viewer.isAdmin && (
-                <Link href="/admin" className="hover:text-white">
+                <Link href="/admin" className="hover:text-[var(--color-paper)]">
                   Admin
                 </Link>
               )}
