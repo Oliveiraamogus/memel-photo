@@ -13,10 +13,13 @@ export function PhotoGrid({
   photos,
   targetRowHeight = 240,
   canVote = false,
+  onOpen,
 }: {
   photos: GalleryPhoto[];
   targetRowHeight?: number;
   canVote?: boolean;
+  /** When set, the parent owns the lightbox (so next/prev can span groups). */
+  onOpen?: (index: number) => void;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -40,6 +43,8 @@ export function PhotoGrid({
     );
   }
 
+  const lightboxIndex = onOpen ? null : openIndex;
+
   return (
     <>
       <div className="flex flex-wrap gap-2 after:grow-[999] after:content-['']">
@@ -47,7 +52,7 @@ export function PhotoGrid({
           <button
             key={photo.id}
             type="button"
-            onClick={() => setOpenIndex(index)}
+            onClick={() => (onOpen ? onOpen(index) : setOpenIndex(index))}
             className="relative block cursor-zoom-in overflow-hidden bg-[var(--color-ink-soft)]"
             style={{
               flexGrow: photo.aspectRatio,
@@ -79,11 +84,11 @@ export function PhotoGrid({
         ))}
       </div>
 
-      {openIndex !== null && (
+      {lightboxIndex !== null && (
         <Lightbox
-          photo={photos[openIndex]}
-          hasPrevious={openIndex > 0}
-          hasNext={openIndex < photos.length - 1}
+          photo={photos[lightboxIndex]}
+          hasPrevious={lightboxIndex > 0}
+          hasNext={lightboxIndex < photos.length - 1}
           onPrevious={() => move(-1)}
           onNext={() => move(1)}
           onClose={close}
