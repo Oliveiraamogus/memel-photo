@@ -46,22 +46,34 @@ export function AlbumForm({
   });
   const [selectedTags, setSelectedTags] = useState(ruleTagIds);
 
-  const patch: AlbumPatch = {
-    title: form.title,
-    description: form.description || null,
-    visibility: form.visibility,
-    source: form.source,
-    ruleDateFrom: form.ruleDateFrom || null,
-    ruleDateTo: form.ruleDateTo || null,
-    ruleMinRatingHalf: form.ruleMinRatingHalf,
-    contributesToBestOf: form.contributesToBestOf,
-  };
-
   const isBestOf = album.kind === "best_of";
+  const isDated = album.kind === "dated";
+
+  const patch: AlbumPatch = isDated
+    ? {
+        title: form.title,
+        description: form.description || null,
+        visibility: form.visibility,
+        contributesToBestOf: form.contributesToBestOf,
+      }
+    : {
+        title: form.title,
+        description: form.description || null,
+        visibility: form.visibility,
+        source: form.source,
+        ruleDateFrom: form.ruleDateFrom || null,
+        ruleDateTo: form.ruleDateTo || null,
+        ruleMinRatingHalf: form.ruleMinRatingHalf,
+        contributesToBestOf: form.contributesToBestOf,
+      };
 
   function save() {
     startTransition(async () => {
-      await updateAlbum(album.id, patch, form.source === "rule" ? selectedTags : []);
+      await updateAlbum(
+        album.id,
+        patch,
+        isDated || isBestOf ? undefined : form.source === "rule" ? selectedTags : [],
+      );
       setDelta(null);
       setSaved(true);
     });
@@ -73,7 +85,7 @@ export function AlbumForm({
     const result = await previewAlbumChange(
       album.id,
       patch,
-      form.source === "rule" ? selectedTags : [],
+      isDated || isBestOf ? undefined : form.source === "rule" ? selectedTags : [],
     );
     if (result.becomingPublic.length === 0 && result.noLongerPublic.length === 0) {
       save();
@@ -136,7 +148,7 @@ export function AlbumForm({
           </select>
         </div>
 
-        {!isBestOf && (
+        {!isBestOf && !isDated && (
           <div>
             <label className="label" htmlFor="source">
               Contents
@@ -154,7 +166,14 @@ export function AlbumForm({
         )}
       </div>
 
-      {form.source === "rule" && (
+      {isDated && (
+        <p className="text-xs text-[var(--color-muted)]">
+          This album is the capture day {album.title}. Photos file themselves here from
+          EXIF; the day window is not editable.
+        </p>
+      )}
+
+      {form.source === "rule" && !isDated && (
         <fieldset className="space-y-4 border-t border-[var(--color-line)] pt-4">
           <legend className="label">Rule — all conditions must hold</legend>
 

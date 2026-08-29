@@ -27,7 +27,8 @@ import {
   tag,
   user,
 } from "@/lib/db/schema";
-import { ensureDatedAlbum, recomputeAllAlbums, unfiledPhotoIds } from "@/lib/membership";
+import { ensureDatedAlbum, recomputeAllAlbums, restoreDatedAlbumWindows, unfiledPhotoIds } from "@/lib/membership";
+import { startOfUtcDay } from "@/lib/slug";
 
 const client = new PGlite();
 const db = drizzle(client, { schema }) as unknown as Database;
@@ -293,6 +294,13 @@ check("album access denies a user without a grant", !vacationForOutsider.canView
 const vacationForFamily = await albumAccess(FAMILY_MEMBER, vacation, db);
 check("album access allows a granted group member", vacationForFamily.canView);
 
+const [datedAlbumRow] = await db.select().from(album).where(eq(album.id, datedAug!)).limit(1);
+const adminDated = await albumAccess(ADMIN, datedAlbumRow, db);
+check("an admin may view a restricted dated album", adminDated.canView);
+check("and may download its original", adminDated.canDownloadOriginals);
+const outsiderDated = await albumAccess(OUTSIDER, datedAlbumRow, db);
+check("an outsider still cannot view that dated album", !outsiderDated.canView);
+
 /* ---------------------------------------------------------------- listings */
 
 console.log("\nListing:");
@@ -324,6 +332,34 @@ const outsiderList = await visibleAlbums(OUTSIDER, db);
 check(
   "another signed-in user does not",
   !outsiderList.map((a) => a.slug).includes("family-vacation-2026"),
+);
+
+const adminList = await visibleAlbums(ADMIN, db);
+check(
+  "an admin listing includes restricted dated albums",
+  adminList.some((a) => a.id === datedAug),
+);
+
+/* ------------------------------------------------------ dated window repair */
+
+console.log("\nDated windows:");
+
+await db
+  .update(album)
+  .set({ ruleDateTo: startOfUtcDay(day) })
+  .where(eq(album.id, datedAug!));
+await recomputeAllAlbums(db);
+check(
+  "a collapsed until-date empties the day album",
+  (await contents(datedAug!)).length === 0,
+);
+await restoreDatedAlbumWindows(db);
+await recomputeAllAlbums(db);
+const restored = await contents(datedAug!);
+check(
+  "restoring the day window refills the photos",
+  restored.length === 2 && restored.includes(p1.id) && restored.includes(p2.id),
+  restored.join(","),
 );
 
 /* ----------------------------------------------------------------- unfiled */

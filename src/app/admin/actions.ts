@@ -23,7 +23,7 @@ import { enqueueRecomputeMembership } from "@/lib/queue";
 import { MAX_HALF } from "@/lib/rating";
 import { BUCKET_DERIVED, BUCKET_ORIGINALS, deleteObjects } from "@/lib/s3";
 import { requireAdmin } from "@/lib/session";
-import { slugify, uniqueSlug } from "@/lib/slug";
+import { slugify, uniqueSlug, parseRuleDateBound } from "@/lib/slug";
 
 /**
  * Membership is recomputed inline here rather than only through the queue, so
@@ -105,9 +105,13 @@ function patchToValues(patch: AlbumPatch) {
   if (patch.visibility !== undefined) values.visibility = patch.visibility;
   if (patch.source !== undefined) values.source = patch.source;
   if (patch.ruleDateFrom !== undefined)
-    values.ruleDateFrom = patch.ruleDateFrom ? new Date(patch.ruleDateFrom) : null;
+    values.ruleDateFrom = patch.ruleDateFrom
+      ? parseRuleDateBound(patch.ruleDateFrom, "from")
+      : null;
   if (patch.ruleDateTo !== undefined)
-    values.ruleDateTo = patch.ruleDateTo ? new Date(patch.ruleDateTo) : null;
+    values.ruleDateTo = patch.ruleDateTo
+      ? parseRuleDateBound(patch.ruleDateTo, "to")
+      : null;
   if (patch.ruleMinRatingHalf !== undefined)
     values.ruleMinRatingHalf = patch.ruleMinRatingHalf;
   if (patch.contributesToBestOf !== undefined)
@@ -123,9 +127,25 @@ async function applyAlbumChange(
   ruleTagIds: string[] | undefined,
   target: Database,
 ) {
-  await target.update(album).set(patchToValues(patch)).where(eq(album.id, albumId));
+  const [current] = await target
+    .select({ kind: album.kind })
+    .from(album)
+    .where(eq(album.id, albumId))
+    .limit(1);
 
-  if (ruleTagIds) {
+  const values = patchToValues(patch);
+  // The date window is the identity of a dated album; editing it (or flipping
+  // the album to "picked by hand") would empty it. Visibility and title stay.
+  if (current?.kind === "dated") {
+    delete values.source;
+    delete values.ruleDateFrom;
+    delete values.ruleDateTo;
+    delete values.ruleMinRatingHalf;
+  }
+
+  await target.update(album).set(values).where(eq(album.id, albumId));
+
+  if (ruleTagIds && current?.kind !== "dated" && current?.kind !== "best_of") {
     await target.execute(sql`delete from album_rule_tag where album_id = ${albumId}`);
     if (ruleTagIds.length > 0) {
       await target.execute(sql`

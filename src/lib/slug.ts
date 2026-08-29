@@ -44,3 +44,14 @@ export function uniqueSlug(base: string, taken: Set<string>): string {
   while (taken.has(`${seed}-${n}`)) n += 1;
   return `${seed}-${n}`;
 }
+
+/**
+ * HTML date inputs send YYYY-MM-DD, which `new Date` treats as midnight UTC
+ * for both ends of a window. "Until" has to mean the end of that day.
+ */
+export function parseRuleDateBound(value: string, bound: "from" | "to"): Date {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00.000Z`)
+    : new Date(value);
+  return bound === "from" ? startOfUtcDay(date) : endOfUtcDay(date);
+}

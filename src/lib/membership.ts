@@ -207,16 +207,40 @@ export async function ensureDatedAlbum(takenAt: Date, database: Database = db) {
     .onConflictDoNothing({ target: album.slug })
     .returning({ id: album.id });
 
-  if (created) return created.id;
+  const id = created?.id
+    ? created.id
+    : (
+        await database
+          .select({ id: album.id })
+          .from(album)
+          .where(eq(album.slug, datedAlbumSlug(from)))
+          .limit(1)
+      )[0]?.id;
 
-  // Lost a race with a concurrent upload; the other one created it.
-  const [raced] = await database
-    .select({ id: album.id })
+  if (id && created) await recomputeAlbum(id, database);
+  return id ?? null;
+}
+
+/**
+ * Saving a dated album used to round "until" to midnight, emptying the day.
+ * Rewrite every dated album's window from its start date so a rebuild can
+ * refill the photos that were already uploaded.
+ */
+export async function restoreDatedAlbumWindows(database: Database = db) {
+  const dated = await database
+    .select({ id: album.id, ruleDateFrom: album.ruleDateFrom })
     .from(album)
-    .where(eq(album.slug, datedAlbumSlug(from)))
-    .limit(1);
+    .where(eq(album.kind, "dated"));
 
-  return raced?.id ?? null;
+  for (const row of dated) {
+    if (!row.ruleDateFrom) continue;
+    const from = startOfUtcDay(row.ruleDateFrom);
+    const to = endOfUtcDay(row.ruleDateFrom);
+    await database
+      .update(album)
+      .set({ ruleDateFrom: from, ruleDateTo: to, source: "rule", updatedAt: new Date() })
+      .where(eq(album.id, row.id));
+  }
 }
 
 /** Photos in no album at all: not deleted, just unfiled and invisible publicly. */

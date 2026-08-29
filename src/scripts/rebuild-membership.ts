@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db, pool } from "@/lib/db";
-import { recomputeAllAlbums } from "@/lib/membership";
+import { recomputeAllAlbums, restoreDatedAlbumWindows } from "@/lib/membership";
 
 /**
  * Recomputes every album from scratch. The materialised membership table is
@@ -8,6 +8,7 @@ import { recomputeAllAlbums } from "@/lib/membership";
  * a job failed or you changed a rule and want certainty rather than trust.
  */
 try {
+  await restoreDatedAlbumWindows(db);
   const count = await recomputeAllAlbums(db);
   console.log(`Rebuilt membership for ${count} album(s).`);
 } catch (error) {

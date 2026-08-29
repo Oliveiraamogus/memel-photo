@@ -21,6 +21,12 @@ export type Access = {
 };
 
 const DENY: Access = { canView: false, canDownloadOriginals: false };
+const ADMIN: Access = { canView: true, canDownloadOriginals: true };
+
+function isAdminSql(userId: string | null) {
+  if (!userId) return sql`false`;
+  return sql`exists (select 1 from "user" u where u.id = ${userId} and u.role = 'admin')`;
+}
 
 /** Grants reaching this viewer, whether made to them or to a group they are in. */
 function grantSubquery(userId: string) {
@@ -52,6 +58,12 @@ export async function albumAccess(
   if (!userId) {
     return openToAll ? { canView: true, canDownloadOriginals: false } : DENY;
   }
+
+  const admin = await execRows<{ ok: boolean }>(
+    database,
+    sql`select (${isAdminSql(userId)}) as ok`,
+  );
+  if (admin[0]?.ok) return ADMIN;
 
   // One row if this viewer has a grant on the album, none if they do not.
   const rows = await execRows<{ can_download: boolean }>(
@@ -109,6 +121,7 @@ export async function visibleAlbums(userId: string | null, database: Database = 
       left join grants g on g.album_id = a.id
       where a.visibility = 'public'
          or g.album_id is not null
+         or (${isAdminSql(userId)})
       order by
         case a.kind when 'best_of' then 0 when 'collection' then 1 else 2 end,
         a.sort_order,
@@ -130,8 +143,9 @@ export async function photoAccess(
       with grants as (${grantsCte(userId)}),
       containing as (
         select
-          (a.visibility in ('public', 'unlisted') or g.album_id is not null) as viewable,
-          coalesce(g.can_download, false) as can_download
+          (a.visibility in ('public', 'unlisted') or g.album_id is not null
+            or (${isAdminSql(userId)})) as viewable,
+          (coalesce(g.can_download, false) or (${isAdminSql(userId)})) as can_download
         from album_photo_resolved apr
         join album a on a.id = apr.album_id
         left join grants g on g.album_id = a.id
@@ -161,7 +175,7 @@ export async function visibleAlbumIds(
       select a.id
       from album a
       left join grants g on g.album_id = a.id
-      where a.visibility = 'public' or g.album_id is not null
+      where a.visibility = 'public' or g.album_id is not null or (${isAdminSql(userId)})
     `,
   );
   return rows.map((r) => r.id);
@@ -187,7 +201,7 @@ export async function browsableAlbumsForPhoto(
       left join grants g on g.album_id = a.id
       where apr.photo_id = ${photoId}
         and a.kind <> 'best_of'
-        and (a.visibility = 'public' or g.album_id is not null)
+        and (a.visibility = 'public' or g.album_id is not null or (${isAdminSql(userId)}))
       order by case a.kind when 'collection' then 0 else 1 end, a.title
     `,
   );
