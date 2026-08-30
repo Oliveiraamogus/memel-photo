@@ -48,7 +48,11 @@ export default async function AdminOverview() {
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Link key={stat.label} href={stat.href} className="panel p-4 hover:border-white/30">
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="panel p-4 hover:border-[var(--color-paper)]/30"
+          >
             <p className="text-2xl tabular-nums">{stat.value}</p>
             <p className="text-xs text-[var(--color-muted)]">{stat.label}</p>
           </Link>

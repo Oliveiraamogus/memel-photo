@@ -291,7 +291,7 @@ export function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-[var(--color-overlay)]"
+      className="fixed inset-0 z-50 flex flex-col bg-[var(--color-overlay)] text-[var(--color-paper)]"
       role="dialog"
       aria-modal="true"
       aria-label={photo.caption ?? photo.filename}
@@ -317,7 +317,7 @@ export function Lightbox({
             type="button"
             onClick={onPrevious}
             aria-label="Previous photo"
-            className="absolute left-2 z-10 px-4 py-8 text-2xl text-white/60 hover:text-white"
+            className="absolute left-2 z-10 px-4 py-8 text-2xl text-[var(--color-muted)] hover:text-[var(--color-paper)]"
           >
             ‹
           </button>
@@ -330,7 +330,7 @@ export function Lightbox({
             type="button"
             onClick={onNext}
             aria-label="Next photo"
-            className="absolute right-2 z-10 px-4 py-8 text-2xl text-white/60 hover:text-white"
+            className="absolute right-2 z-10 px-4 py-8 text-2xl text-[var(--color-muted)] hover:text-[var(--color-paper)]"
           >
             ›
           </button>
@@ -395,7 +395,10 @@ export function Lightbox({
             {details.albums.map((album, index) => (
               <span key={album.slug}>
                 {index > 0 && ", "}
-                <Link href={`/a/${album.slug}`} className="underline hover:text-white">
+                <Link
+                  href={`/a/${album.slug}`}
+                  className="underline hover:text-[var(--color-paper-hover)]"
+                >
                   {album.title}
                 </Link>
               </span>

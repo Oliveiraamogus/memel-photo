@@ -49,8 +49,8 @@
   --accent: #a07d3a;
   --hover: #e4e4de;
   --paper-hover: #000000;
-  --overlay: rgb(0 0 0 / 0.92);
-  --overlay-soft: rgb(0 0 0 / 0.45);
+  --overlay: rgb(244 244 242 / 0.96);
+  --overlay-soft: rgb(244 244 242 / 0.7);
   --thumb: #e8e8e4;
   --callout: #f3eee4;
   --danger-border: #fecaca;
