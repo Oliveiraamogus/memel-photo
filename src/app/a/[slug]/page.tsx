@@ -81,7 +81,6 @@ export default async function AlbumPage({
         <PhotoGrid
           photos={photos}
           canVote={Boolean(viewer)}
-          canManage={Boolean(viewer?.isAdmin)}
         />
       </main>
     </>
