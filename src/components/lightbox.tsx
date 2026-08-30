@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { deletePhoto } from "@/app/admin/actions";
 import { formatAverage, formatStars, parseAverage } from "@/lib/rating";
 import type { GalleryPhoto } from "@/lib/photos";
 import { StarDisplay, StarInput } from "./stars";
@@ -9,6 +10,7 @@ import { StarDisplay, StarInput } from "./stars";
 type Details = {
   albums: { slug: string; title: string }[];
   canDownloadOriginals: boolean;
+  canDelete?: boolean;
   ratingAvg: string | null;
   ratingCount: number;
   myRatingHalf: number | null;
@@ -204,6 +206,7 @@ export function Lightbox({
   onNext,
   onClose,
   canVote,
+  onDeleted,
 }: {
   photo: GalleryPhoto;
   hasPrevious: boolean;
@@ -212,9 +215,13 @@ export function Lightbox({
   onNext: () => void;
   onClose: () => void;
   canVote: boolean;
+  /** Called after the photo has been deleted so the parent can drop it from its list. */
+  onDeleted?: (photoId: string) => void;
 }) {
   const [details, setDetails] = useState<Details | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [pendingDelete, startDelete] = useTransition();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -242,6 +249,10 @@ export function Lightbox({
     return () => {
       cancelled = true;
     };
+  }, [photo.id]);
+
+  useEffect(() => {
+    setConfirmingDelete(false);
   }, [photo.id]);
 
   async function vote(half: number) {
@@ -392,12 +403,60 @@ export function Lightbox({
           </div>
         )}
 
-        {details?.canDownloadOriginals && (
-          <a className="btn ml-auto" href={`/api/photos/${photo.id}/original`}>
-            Download original
-          </a>
+        {(details?.canDownloadOriginals || details?.canDelete) && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            {details.canDownloadOriginals && (
+              <a className="btn" href={`/api/photos/${photo.id}/original`}>
+                Download original
+              </a>
+            )}
+            {details.canDelete && (
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={pendingDelete}
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {confirmingDelete && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--color-overlay-soft)] p-6">
+          <div className="panel max-w-md p-5">
+            <p className="text-sm">
+              Delete this photo permanently? This removes the files.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn"
+                disabled={pendingDelete}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={pendingDelete}
+                onClick={() =>
+                  startDelete(async () => {
+                    await deletePhoto(photo.id);
+                    onDeleted?.(photo.id);
+                    onClose();
+                  })
+                }
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

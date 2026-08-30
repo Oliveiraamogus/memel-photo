@@ -40,6 +40,7 @@ export async function GET(
   return NextResponse.json({
     albums: albums.map(({ slug, title }) => ({ slug, title })),
     canDownloadOriginals: access.canDownloadOriginals,
+    canDelete: Boolean(viewer?.isAdmin),
     ratingAvg: row?.ratingAvg ?? null,
     ratingCount: row?.ratingCount ?? 0,
     myRatingHalf,

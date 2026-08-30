@@ -167,6 +167,7 @@ export function PhotoGrid({
           onNext={() => move(1)}
           onClose={close}
           canVote={canVote}
+          onDeleted={() => router.refresh()}
         />
       )}
     </>

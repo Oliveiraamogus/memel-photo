@@ -183,6 +183,15 @@ export function PhotoStream({
           onNext={() => setOpenIndex((current) => (current === null ? null : current + 1))}
           onClose={() => setOpenIndex(null)}
           canVote={canVote}
+          onDeleted={(photoId) => {
+            setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+            setSelected((current) => {
+              if (!current.has(photoId)) return current;
+              const next = new Set(current);
+              next.delete(photoId);
+              return next;
+            });
+          }}
         />
       )}
 
