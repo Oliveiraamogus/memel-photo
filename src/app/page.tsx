@@ -1,5 +1,5 @@
 import { visibleAlbums } from "@/lib/acl";
-import { albumCovers } from "@/lib/photos";
+import { albumCovers, albumRatingAverages } from "@/lib/photos";
 import { getViewer } from "@/lib/session";
 import { AlbumCard, type AlbumCardData } from "@/components/album-card";
 import { SiteHeader } from "@/components/site-header";
@@ -18,11 +18,16 @@ export default async function HomePage() {
   const albums = await visibleAlbums(viewer?.id ?? null);
 
   const nonEmpty = albums.filter((a) => a.photo_count > 0 || a.kind === "best_of");
-  const covers = await albumCovers(nonEmpty.map((a) => a.id));
+  const ids = nonEmpty.map((a) => a.id);
+  const [covers, ratings] = await Promise.all([
+    albumCovers(ids),
+    albumRatingAverages(ids),
+  ]);
 
   const decorate = (album: (typeof nonEmpty)[number]): AlbumCardData => ({
     ...album,
     cover: covers.get(album.id) ?? null,
+    ratingAvg: ratings.get(album.id) ?? null,
   });
 
   const bestOf = nonEmpty.filter((a) => a.kind === "best_of").map(decorate);

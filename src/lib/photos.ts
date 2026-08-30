@@ -266,6 +266,36 @@ export async function albumCovers(
   return new Map(withSrc.map((photo, index) => [rows[index].album_id, photo]));
 }
 
+/**
+ * Mean photographer rating per album, in stars. Photos without a rating are
+ * left out of the mean so an unrated upload does not drag a day album to zero.
+ */
+export async function albumRatingAverages(
+  albumIds: string[],
+  database: Database = db,
+): Promise<Map<string, number>> {
+  if (albumIds.length === 0) return new Map();
+
+  const rows = await execRows<{ album_id: string; avg_half: number }>(
+    database,
+    sql`
+      select
+        apr.album_id,
+        avg(p.admin_rating_half)::float8 as avg_half
+      from album_photo_resolved apr
+      join photo p on p.id = apr.photo_id
+      where p.admin_rating_half is not null
+        and apr.album_id in (${sql.join(
+          albumIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )})
+      group by apr.album_id
+    `,
+  );
+
+  return new Map(rows.map((row) => [row.album_id, row.avg_half / 2]));
+}
+
 export async function photoById(photoId: string, database: Database = db) {
   const rows = await execRows<PhotoRow>(
     database,
