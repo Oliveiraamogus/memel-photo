@@ -89,18 +89,18 @@ export function AdminPhotoCard({
           </span>
         )}
         {onSelect && (
-          <label
-            className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
-            onClick={(event) => {
-              event.preventDefault();
-              onSelect?.(photo.id, event.shiftKey);
-            }}
-          >
+          <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
             <input
               type="checkbox"
               checked={selected ?? false}
-              readOnly
               aria-label={`Select ${photo.filename}`}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => {
+                const shift =
+                  "shiftKey" in event.nativeEvent &&
+                  Boolean((event.nativeEvent as MouseEvent).shiftKey);
+                onSelect(photo.id, shift);
+              }}
             />
           </label>
         )}

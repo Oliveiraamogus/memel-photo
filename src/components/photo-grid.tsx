@@ -139,19 +139,18 @@ export function PhotoGrid({
               />
             </button>
             {canManage && (
-              <label
-                className="absolute right-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  handleToggle(photo.id, index, event.shiftKey);
-                }}
-              >
+              <label className="absolute right-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
                 <input
                   type="checkbox"
                   checked={selected.has(photo.id)}
-                  readOnly
                   aria-label={`Select ${photo.filename}`}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    const shift =
+                      "shiftKey" in event.nativeEvent &&
+                      Boolean((event.nativeEvent as MouseEvent).shiftKey);
+                    handleToggle(photo.id, index, shift);
+                  }}
                 />
               </label>
             )}

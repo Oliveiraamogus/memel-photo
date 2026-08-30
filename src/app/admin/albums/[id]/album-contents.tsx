@@ -73,13 +73,19 @@ function SortableTile({
       <label
         className="absolute right-1 top-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
         onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onToggle(event.shiftKey);
-        }}
       >
-        <input type="checkbox" checked={selected} readOnly aria-label={`Select ${photo.filename}`} />
+        <input
+          type="checkbox"
+          checked={selected}
+          aria-label={`Select ${photo.filename}`}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            const shift =
+              "shiftKey" in event.nativeEvent &&
+              Boolean((event.nativeEvent as MouseEvent).shiftKey);
+            onToggle(shift);
+          }}
+        />
       </label>
       {isCover && (
         <span className="absolute left-1 top-1 rounded bg-[var(--color-overlay-soft)] px-1.5 py-0.5 text-[10px]">
