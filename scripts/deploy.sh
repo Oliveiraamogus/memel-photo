@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull latest code and rebuild/restart the Docker stack.
+# Pull latest code, rebuild/restart the Docker stack, and configure Garage.
 #
 # Usage: ./scripts/deploy.sh [--no-pull]
 
@@ -18,7 +18,7 @@ for arg in "$@"; do
     --no-pull) PULL=0 ;;
     -h|--help)
       echo "Usage: $0 [--no-pull]"
-      echo "  Pull latest code and run docker compose up -d --build."
+      echo "  Pull latest code, run docker compose up -d --build, then garage-init.sh."
       exit 0
       ;;
     *)
@@ -40,6 +40,10 @@ if ! docker compose up -d --build; then
   echo "  docker compose logs migrate" >&2
   exit 1
 fi
+
+echo
+echo "Configuring Garage buckets and CORS..."
+"$(dirname "$0")/garage-init.sh"
 
 echo
 docker compose ps
