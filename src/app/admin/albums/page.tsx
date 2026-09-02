@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db, execRows } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,82 @@ type Row = {
   photo_count: number;
 };
 
-export default async function AdminAlbumsPage() {
+const SORT_COLUMNS = {
+  title: sql`a.title`,
+  kind: sql`a.kind::text`,
+  source: sql`a.source::text`,
+  visibility: sql`a.visibility::text`,
+  photos: sql`(select count(*)::int from album_photo_resolved apr where apr.album_id = a.id)`,
+} as const;
+
+type SortKey = keyof typeof SORT_COLUMNS;
+
+const DEFAULT_ORDER = sql`
+  case a.kind::text when 'best_of' then 0 when 'collection' then 1 when 'rule' then 1 else 2 end,
+  a.sort_order, a.rule_date_from desc nulls last, a.title
+`;
+
+function parseSort(raw: string | undefined): SortKey | null {
+  if (!raw) return null;
+  return raw in SORT_COLUMNS ? (raw as SortKey) : null;
+}
+
+function parseDir(raw: string | undefined): "asc" | "desc" {
+  return raw === "desc" ? "desc" : "asc";
+}
+
+function orderByClause(sort: SortKey | null, dir: "asc" | "desc"): SQL {
+  if (!sort) return DEFAULT_ORDER;
+  const column = SORT_COLUMNS[sort];
+  return dir === "desc" ? sql`${column} desc nulls last, a.title` : sql`${column} asc nulls last, a.title`;
+}
+
+function sortHref(key: SortKey, current: SortKey | null, dir: "asc" | "desc") {
+  const nextDir = current === key && dir === "asc" ? "desc" : "asc";
+  const params = new URLSearchParams({ sort: key, dir: nextDir });
+  return `/admin/albums?${params.toString()}`;
+}
+
+function SortHeader({
+  label,
+  column,
+  current,
+  dir,
+  align = "left",
+}: {
+  label: string;
+  column: SortKey;
+  current: SortKey | null;
+  dir: "asc" | "desc";
+  align?: "left" | "right";
+}) {
+  const active = current === column;
+  return (
+    <th className={align === "right" ? "py-2 text-right" : "py-2"}>
+      <Link
+        href={sortHref(column, current, dir)}
+        className={`inline-flex items-center gap-1 hover:text-[var(--color-paper)] ${
+          active ? "text-[var(--color-paper)]" : ""
+        } ${align === "right" ? "flex-row-reverse" : ""}`}
+      >
+        {label}
+        <span className="text-[10px] tabular-nums" aria-hidden>
+          {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </Link>
+    </th>
+  );
+}
+
+export default async function AdminAlbumsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; dir?: string }>;
+}) {
+  const params = await searchParams;
+  const sort = parseSort(params.sort);
+  const dir = parseDir(params.dir);
+
   const albums = await execRows<Row>(
     db,
     sql`
@@ -24,9 +99,7 @@ export default async function AdminAlbumsPage() {
              (select count(*)::int from album_photo_resolved apr where apr.album_id = a.id)
                as photo_count
       from album a
-      order by
-        case a.kind::text when 'best_of' then 0 when 'collection' then 1 when 'rule' then 1 else 2 end,
-        a.sort_order, a.rule_date_from desc nulls last, a.title
+      order by ${orderByClause(sort, dir)}
     `,
   );
 
@@ -42,11 +115,11 @@ export default async function AdminAlbumsPage() {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-wide text-[var(--color-muted)]">
-            <th className="py-2">Title</th>
-            <th>Kind</th>
-            <th>Contents</th>
-            <th>Visibility</th>
-            <th className="text-right">Photos</th>
+            <SortHeader label="Title" column="title" current={sort} dir={dir} />
+            <SortHeader label="Kind" column="kind" current={sort} dir={dir} />
+            <SortHeader label="Contents" column="source" current={sort} dir={dir} />
+            <SortHeader label="Visibility" column="visibility" current={sort} dir={dir} />
+            <SortHeader label="Photos" column="photos" current={sort} dir={dir} align="right" />
             <th />
           </tr>
         </thead>
