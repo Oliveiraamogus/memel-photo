@@ -24,6 +24,7 @@ import {
 } from "@/app/admin/actions";
 import { toggleRange } from "@/lib/selection";
 import { SelectionBar } from "@/components/selection-bar";
+import { SelectionCheckbox } from "@/components/selection-checkbox";
 
 export type ContentPhoto = {
   id: string;
@@ -74,17 +75,10 @@ function SortableTile({
         className="absolute right-1 top-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]"
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <input
-          type="checkbox"
+        <SelectionCheckbox
           checked={selected}
-          aria-label={`Select ${photo.filename}`}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => {
-            const shift =
-              "shiftKey" in event.nativeEvent &&
-              Boolean((event.nativeEvent as MouseEvent).shiftKey);
-            onToggle(shift);
-          }}
+          label={`Select ${photo.filename}`}
+          onToggle={onToggle}
         />
       </label>
       {isCover && (

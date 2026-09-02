@@ -7,6 +7,7 @@ import type { GalleryPhoto } from "@/lib/photos";
 import { toggleRange } from "@/lib/selection";
 import { Lightbox } from "./lightbox";
 import { SelectionBar } from "./selection-bar";
+import { SelectionCheckbox } from "./selection-checkbox";
 
 /**
  * A justified grid: every row is filled edge to edge by letting each photo grow
@@ -140,17 +141,10 @@ export function PhotoGrid({
             </button>
             {canManage && (
               <label className="absolute right-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
-                <input
-                  type="checkbox"
+                <SelectionCheckbox
                   checked={selected.has(photo.id)}
-                  aria-label={`Select ${photo.filename}`}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => {
-                    const shift =
-                      "shiftKey" in event.nativeEvent &&
-                      Boolean((event.nativeEvent as MouseEvent).shiftKey);
-                    handleToggle(photo.id, index, shift);
-                  }}
+                  label={`Select ${photo.filename}`}
+                  onToggle={(shift) => handleToggle(photo.id, index, shift)}
                 />
               </label>
             )}

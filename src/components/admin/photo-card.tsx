@@ -12,6 +12,7 @@ import {
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { StarInput } from "@/components/stars";
 import { AlbumChips } from "./album-chips";
+import { SelectionCheckbox } from "@/components/selection-checkbox";
 import { VisibilityDialog } from "./visibility-dialog";
 
 export type AdminPhoto = {
@@ -90,17 +91,10 @@ export function AdminPhotoCard({
         )}
         {onSelect && (
           <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
-            <input
-              type="checkbox"
+            <SelectionCheckbox
               checked={selected ?? false}
-              aria-label={`Select ${photo.filename}`}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => {
-                const shift =
-                  "shiftKey" in event.nativeEvent &&
-                  Boolean((event.nativeEvent as MouseEvent).shiftKey);
-                onSelect(photo.id, shift);
-              }}
+              label={`Select ${photo.filename}`}
+              onToggle={(shift) => onSelect(photo.id, shift)}
             />
           </label>
         )}
