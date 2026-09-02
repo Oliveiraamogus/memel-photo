@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/upload", label: "Upload" },
   { href: "/admin/photos", label: "Photos" },
   { href: "/admin/albums", label: "Albums" },
+  { href: "/admin/albums/new", label: "New album" },
   { href: "/admin/tags", label: "Tags" },
   { href: "/admin/unfiled", label: "Unfiled" },
   { href: "/admin/users", label: "Users" },

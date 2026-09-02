@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { createAlbum } from "@/app/admin/actions";
-import { AlbumRuleFields } from "@/components/admin/album-rule-fields";
+import { AlbumRuleSection } from "@/components/admin/album-rule-section";
 import { albumRuleFormToInput, emptyAlbumRuleForm } from "@/lib/album-rules";
 
 export function CreateAlbumForm({ tags }: { tags: { id: string; name: string }[] }) {
@@ -31,11 +32,11 @@ export function CreateAlbumForm({ tags }: { tags: { id: string; name: string }[]
   }
 
   return (
-    <form onSubmit={submit} className="panel mb-8 space-y-4 p-4">
+    <form onSubmit={submit} className="panel space-y-4 p-5">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">
           <label className="label" htmlFor="new-album-title">
-            New album
+            Title
           </label>
           <input
             id="new-album-title"
@@ -64,55 +65,25 @@ export function CreateAlbumForm({ tags }: { tags: { id: string; name: string }[]
           </select>
         </div>
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Creating..." : "Create"}
+          {pending ? "Creating..." : "Create album"}
         </button>
+        <Link href="/admin/albums" className="btn">
+          Cancel
+        </Link>
       </div>
 
-      <label className="flex items-start gap-3 text-sm">
-        <input
-          type="checkbox"
-          className="mt-1"
-          checked={useRule}
-          onChange={(e) => setUseRule(e.target.checked)}
-        />
-        <span>
-          Matched by a rule (like Best of)
-          <span className="mt-1 block text-xs text-[var(--color-muted)]">
-            Photos enter automatically when they match every condition you set below.
-            Leave unchecked to create a collection album tied to a tag with the same name.
-          </span>
-        </span>
-      </label>
-
-      {useRule && (
-        <>
-          <AlbumRuleFields
-            tags={tags}
-            selectedTagIds={selectedTags}
-            onSelectedTagIdsChange={setSelectedTags}
-            rules={rules}
-            onChange={(patch) => setRules((current) => ({ ...current, ...patch }))}
-          />
-
-          {visibility !== "public" && (
-            <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={contributesToBestOf}
-                onChange={(e) => setContributesToBestOf(e.target.checked)}
-              />
-              <span>
-                Let my best shots from this album appear in Best of
-                <span className="mt-1 block text-xs text-[var(--color-muted)]">
-                  The album stays unbrowsable, but high-rated photos here can still surface
-                  in Best of.
-                </span>
-              </span>
-            </label>
-          )}
-        </>
-      )}
+      <AlbumRuleSection
+        tags={tags}
+        selectedTagIds={selectedTags}
+        onSelectedTagIdsChange={setSelectedTags}
+        rules={rules}
+        onRulesChange={(patch) => setRules((current) => ({ ...current, ...patch }))}
+        enabled={useRule}
+        onEnabledChange={setUseRule}
+        visibility={visibility}
+        contributesToBestOf={contributesToBestOf}
+        onContributesToBestOfChange={setContributesToBestOf}
+      />
     </form>
   );
 }

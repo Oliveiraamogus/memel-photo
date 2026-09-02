@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { previewAlbumChange, updateAlbum, type AlbumPatch } from "@/app/admin/actions";
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { VisibilityDialog } from "@/components/admin/visibility-dialog";
-import { AlbumRuleFields } from "@/components/admin/album-rule-fields";
+import { AlbumRuleSection } from "@/components/admin/album-rule-section";
 import { albumRuleFormFromAlbum, albumRuleFormToInput } from "@/lib/album-rules";
 import { formatStars } from "@/lib/rating";
 
@@ -53,24 +53,22 @@ export function AlbumForm({
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const isBestOf = album.kind === "best_of";
+  const isDated = album.kind === "dated";
+  const isCollection = album.kind === "collection";
+  const isRule = album.kind === "rule";
+  const usesRules = isRule || isBestOf;
+
   const [form, setForm] = useState({
     title: album.title,
     description: album.description ?? "",
     visibility: album.visibility,
-    source: album.source,
     contributesToBestOf: album.contributesToBestOf,
     rules: albumRuleFormFromAlbum(album),
   });
   const [selectedTags, setSelectedTags] = useState(ruleTagIds);
 
-  const isBestOf = album.kind === "best_of";
-  const isDated = album.kind === "dated";
-  const isCollection = album.kind === "collection";
-  const isRule = album.kind === "rule";
-  const lockRules = isDated || isCollection;
-  const showRules = isRule || (form.source === "rule" && !lockRules);
-
-  const patch: AlbumPatch = lockRules
+  const patch: AlbumPatch = isDated || isCollection
     ? {
         title: form.title,
         description: form.description || null,
@@ -81,17 +79,14 @@ export function AlbumForm({
         title: form.title,
         description: form.description || null,
         visibility: form.visibility,
-        source: isRule ? "rule" : form.source,
+        source: "rule",
         contributesToBestOf: form.contributesToBestOf,
-        ...(showRules ? albumRuleFormToInput(form.rules) : {}),
+        ...albumRuleFormToInput(form.rules),
       };
 
   function ruleTagPayload() {
-    return isDated || isBestOf || isCollection
-      ? undefined
-      : showRules
-        ? selectedTags
-        : [];
+    if (isDated || isCollection || isBestOf) return undefined;
+    return selectedTags;
   }
 
   function save() {
@@ -115,11 +110,18 @@ export function AlbumForm({
 
   return (
     <form onSubmit={submit} className="panel space-y-5 p-5">
-      {form.contributesToBestOf && (
+      {form.contributesToBestOf && !isBestOf && (
         <p className="rounded border border-[var(--color-accent)] bg-[var(--color-callout)] px-3 py-2 text-sm">
           This album feeds Best of. Any photo here rated{" "}
           {formatStars(album.ruleMinRatingHalf ?? 16)} or above is shown publicly, even
           though the album itself is not browsable.
+        </p>
+      )}
+
+      {isBestOf && (
+        <p className="rounded border border-[var(--color-line)] bg-[var(--color-callout)] px-3 py-2 text-sm">
+          Best of draws from public albums and any private album that opts in. Set the rule
+          below — unrated-only is useful for finding photos still needing a score.
         </p>
       )}
 
@@ -148,77 +150,63 @@ export function AlbumForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="visibility">
-            Visibility
-          </label>
-          <select
-            id="visibility"
-            className="field"
-            value={form.visibility}
-            onChange={(e) =>
-              setForm({ ...form, visibility: e.target.value as Album["visibility"] })
-            }
-          >
-            <option value="restricted">Restricted — only people you grant</option>
-            <option value="unlisted">Unlisted — anyone with the link, never listed</option>
-            <option value="public">Public — listed to everyone</option>
-          </select>
-        </div>
-
-        {!isBestOf && !lockRules && !isRule && (
-          <div>
-            <label className="label" htmlFor="source">
-              Contents
-            </label>
-            <select
-              id="source"
-              className="field"
-              value={form.source}
-              onChange={(e) => setForm({ ...form, source: e.target.value as Album["source"] })}
-            >
-              <option value="manual">Picked by hand, ordered</option>
-              <option value="rule">Matched by a rule</option>
-            </select>
-          </div>
-        )}
+      <div>
+        <label className="label" htmlFor="visibility">
+          Visibility
+        </label>
+        <select
+          id="visibility"
+          className="field"
+          value={form.visibility}
+          onChange={(e) =>
+            setForm({ ...form, visibility: e.target.value as Album["visibility"] })
+          }
+        >
+          <option value="restricted">Restricted — only people you grant</option>
+          <option value="unlisted">Unlisted — anyone with the link, never listed</option>
+          <option value="public">Public — listed to everyone</option>
+        </select>
       </div>
 
       {isDated && (
         <p className="text-xs text-[var(--color-muted)]">
-          This album is the capture day {album.title}. Photos file themselves here from
-          EXIF; the day window is not editable.
+          This album is the capture day {album.title}. Photos file themselves here from EXIF;
+          the day window is not editable.
         </p>
       )}
 
       {isCollection && (
         <p className="text-xs text-[var(--color-muted)]">
-          Photos belong here when they are tagged with this album&apos;s name. Add or
-          remove them from the photo library, or with Add photos below.
+          Collection albums match a tag with the same name. To use custom rules (ISO, rating,
+          dates, etc.), create a{" "}
+          <a href="/admin/albums/new" className="underline hover:text-[var(--color-paper)]">
+            new rule album
+          </a>
+          .
         </p>
       )}
 
-      {isRule && (
-        <p className="text-xs text-[var(--color-muted)]">
-          Photos enter when they match every rule below. Removing one from the grid writes
-          an exclude so the rule stops pulling it back.
-        </p>
-      )}
-
-      {showRules && (
-        <AlbumRuleFields
+      {usesRules && (
+        <AlbumRuleSection
           tags={tags}
           selectedTagIds={selectedTags}
           onSelectedTagIdsChange={setSelectedTags}
           rules={form.rules}
-          onChange={(patch) =>
+          onRulesChange={(patch) =>
             setForm((current) => ({ ...current, rules: { ...current.rules, ...patch } }))
           }
+          enabled
+          lockEnabled
+          visibility={form.visibility}
+          contributesToBestOf={form.contributesToBestOf}
+          onContributesToBestOfChange={(contributesToBestOf) =>
+            setForm({ ...form, contributesToBestOf })
+          }
+          showContributesToBestOf={!isBestOf}
         />
       )}
 
-      {!isBestOf && form.visibility !== "public" && (
+      {!isBestOf && !usesRules && form.visibility !== "public" && (
         <div className="border-t border-[var(--color-line)] pt-4">
           <label className="flex items-start gap-3 text-sm">
             <input

@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { asc, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db, execRows } from "@/lib/db";
-import { tag } from "@/lib/db/schema";
-import { CreateAlbumForm } from "./create-album-form";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +16,9 @@ type Row = {
 };
 
 export default async function AdminAlbumsPage() {
-  const [albums, tags] = await Promise.all([
-    execRows<Row>(
-      db,
-      sql`
+  const albums = await execRows<Row>(
+    db,
+    sql`
       select a.id, a.slug, a.title, a.kind::text, a.source::text, a.visibility::text,
              a.contributes_to_best_of,
              (select count(*)::int from album_photo_resolved apr where apr.album_id = a.id)
@@ -31,15 +28,16 @@ export default async function AdminAlbumsPage() {
         case a.kind::text when 'best_of' then 0 when 'collection' then 1 when 'rule' then 1 else 2 end,
         a.sort_order, a.rule_date_from desc nulls last, a.title
     `,
-    ),
-    db.select({ id: tag.id, name: tag.name }).from(tag).orderBy(asc(tag.name)),
-  ]);
+  );
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-medium">Albums</h1>
-
-      <CreateAlbumForm tags={tags} />
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <h1 className="text-xl font-medium">Albums</h1>
+        <Link href="/admin/albums/new" className="btn btn-primary">
+          New album
+        </Link>
+      </div>
 
       <table className="w-full text-sm">
         <thead>
