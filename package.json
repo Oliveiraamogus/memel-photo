@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:all": "concurrently -k -n web,worker -c blue,magenta \"npm run dev\" \"npm run worker\"",
-    "deploy": "git pull && docker compose up -d --build",
+    "deploy": "./scripts/deploy.sh",
     "build": "next build",
     "start": "next start",
     "worker": "tsx watch src/worker/index.ts",
