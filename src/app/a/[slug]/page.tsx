@@ -65,17 +65,24 @@ export default async function AlbumPage({
             </p>
           </div>
 
-          <nav className="flex gap-1 text-xs">
-            {SORTS.map((option) => (
-              <Link
-                key={option.value}
-                href={`/a/${slug}?sort=${option.value}`}
-                className={`btn ${activeSort === option.value ? "btn-primary" : ""}`}
-              >
-                {option.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-col items-end gap-3">
+            {access.canDownloadOriginals && photos.length > 0 && (
+              <a href={`/api/albums/${slug}/download`} className="btn">
+                Download album
+              </a>
+            )}
+            <nav className="flex gap-1 text-xs">
+              {SORTS.map((option) => (
+                <Link
+                  key={option.value}
+                  href={`/a/${slug}?sort=${option.value}`}
+                  className={`btn ${activeSort === option.value ? "btn-primary" : ""}`}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
 
         <PhotoGrid
