@@ -21,6 +21,7 @@ import {
   backfillCollectionAlbums,
   collectionTagId,
   ensureCollectionForTag,
+  grantAdminsOnAlbum,
   recomputeAlbum,
   recomputeAllAlbums,
   recomputeForPhoto,
@@ -31,7 +32,11 @@ import { enqueueRecomputeMembership } from "@/lib/queue";
 import { MAX_HALF } from "@/lib/rating";
 import { BUCKET_DERIVED, BUCKET_ORIGINALS, deleteObjects } from "@/lib/s3";
 import { requireAdmin } from "@/lib/session";
-import { parseRuleDateBound, slugify } from "@/lib/slug";
+import { slugify, uniqueSlug } from "@/lib/slug";
+import {
+  type AlbumRuleInput,
+  albumRuleInputToValues,
+} from "@/lib/album-rules";
 
 /**
  * Membership is recomputed inline here rather than only through the queue, so
@@ -59,24 +64,63 @@ async function refreshForAlbum(albumId: string) {
 
 /* ------------------------------------------------------------------ albums */
 
-export async function createAlbum(formData: FormData) {
+export type CreateAlbumInput = {
+  title: string;
+  visibility: "public" | "unlisted" | "restricted";
+  useRule: boolean;
+  ruleTagIds?: string[];
+  contributesToBestOf?: boolean;
+} & AlbumRuleInput;
+
+export async function createAlbum(input: CreateAlbumInput) {
   await requireAdmin();
 
-  const title = String(formData.get("title") ?? "").trim();
+  const title = input.title.trim();
   if (!title) throw new Error("A title is required");
 
-  const visibility = String(formData.get("visibility") ?? "restricted") as
-    | "public"
-    | "unlisted"
-    | "restricted";
+  const visibility = input.visibility;
 
-  const { albumId } = await ensureCollectionForTag(title, { visibility });
-  await db
-    .update(album)
-    .set({ visibility, updatedAt: new Date() })
-    .where(eq(album.id, albumId));
-  await refreshForAlbum(albumId);
-  redirect(`/admin/albums/${albumId}`);
+  if (!input.useRule) {
+    const { albumId } = await ensureCollectionForTag(title, { visibility });
+    await db
+      .update(album)
+      .set({ visibility, updatedAt: new Date() })
+      .where(eq(album.id, albumId));
+    await refreshForAlbum(albumId);
+    redirect(`/admin/albums/${albumId}`);
+  }
+
+  const taken = new Set(
+    (await db.select({ slug: album.slug }).from(album)).map((row) => row.slug),
+  );
+  const [created] = await db
+    .insert(album)
+    .values({
+      slug: uniqueSlug(slugify(title), taken),
+      title,
+      visibility,
+      kind: "rule",
+      source: "rule",
+      ...albumRuleInputToValues(input),
+      contributesToBestOf: input.contributesToBestOf ?? false,
+      publishedAt: new Date(),
+    } as typeof album.$inferInsert)
+    .returning({ id: album.id });
+
+  const ruleTagIds = input.ruleTagIds ?? [];
+  if (ruleTagIds.length > 0) {
+    await db.execute(sql`
+      insert into album_rule_tag (album_id, tag_id)
+      select ${created.id}, id from tag where id in (${sql.join(
+        ruleTagIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})
+    `);
+  }
+
+  await grantAdminsOnAlbum(created.id, db);
+  await refreshForAlbum(created.id);
+  redirect(`/admin/albums/${created.id}`);
 }
 
 export type AlbumPatch = {
@@ -84,13 +128,10 @@ export type AlbumPatch = {
   description?: string | null;
   visibility?: "public" | "unlisted" | "restricted";
   source?: "manual" | "rule";
-  ruleDateFrom?: string | null;
-  ruleDateTo?: string | null;
-  ruleMinRatingHalf?: number | null;
   contributesToBestOf?: boolean;
   sortOrder?: number;
   coverPhotoId?: string | null;
-};
+} & Partial<AlbumRuleInput>;
 
 function patchToValues(patch: AlbumPatch) {
   const values: Record<string, unknown> = { updatedAt: new Date() };
@@ -98,20 +139,39 @@ function patchToValues(patch: AlbumPatch) {
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.visibility !== undefined) values.visibility = patch.visibility;
   if (patch.source !== undefined) values.source = patch.source;
-  if (patch.ruleDateFrom !== undefined)
-    values.ruleDateFrom = patch.ruleDateFrom
-      ? parseRuleDateBound(patch.ruleDateFrom, "from")
-      : null;
-  if (patch.ruleDateTo !== undefined)
-    values.ruleDateTo = patch.ruleDateTo
-      ? parseRuleDateBound(patch.ruleDateTo, "to")
-      : null;
-  if (patch.ruleMinRatingHalf !== undefined)
-    values.ruleMinRatingHalf = patch.ruleMinRatingHalf;
   if (patch.contributesToBestOf !== undefined)
     values.contributesToBestOf = patch.contributesToBestOf;
   if (patch.sortOrder !== undefined) values.sortOrder = patch.sortOrder;
   if (patch.coverPhotoId !== undefined) values.coverPhotoId = patch.coverPhotoId;
+
+  const ruleKeys: (keyof AlbumRuleInput)[] = [
+    "ruleDateFrom",
+    "ruleDateTo",
+    "ruleMinRatingHalf",
+    "ruleMaxRatingHalf",
+    "ruleUnratedOnly",
+    "ruleIsoMin",
+    "ruleIsoMax",
+    "ruleApertureMin",
+    "ruleApertureMax",
+    "ruleExposureMin",
+    "ruleExposureMax",
+    "ruleFocalLengthMin",
+    "ruleFocalLengthMax",
+    "ruleWidthMin",
+    "ruleWidthMax",
+    "ruleHeightMin",
+    "ruleHeightMax",
+    "ruleBytesMin",
+    "ruleBytesMax",
+    "ruleCamera",
+    "ruleLens",
+    "ruleMime",
+  ];
+  if (ruleKeys.some((key) => patch[key] !== undefined)) {
+    Object.assign(values, albumRuleInputToValues(patch));
+  }
+
   return values;
 }
 
@@ -130,9 +190,32 @@ async function applyAlbumChange(
   const values = patchToValues(patch);
   if (current?.kind === "dated" || current?.kind === "collection") {
     delete values.source;
-    delete values.ruleDateFrom;
-    delete values.ruleDateTo;
-    delete values.ruleMinRatingHalf;
+    for (const key of [
+      "ruleDateFrom",
+      "ruleDateTo",
+      "ruleMinRatingHalf",
+      "ruleMaxRatingHalf",
+      "ruleUnratedOnly",
+      "ruleIsoMin",
+      "ruleIsoMax",
+      "ruleApertureMin",
+      "ruleApertureMax",
+      "ruleExposureMin",
+      "ruleExposureMax",
+      "ruleFocalLengthMin",
+      "ruleFocalLengthMax",
+      "ruleWidthMin",
+      "ruleWidthMax",
+      "ruleHeightMin",
+      "ruleHeightMax",
+      "ruleBytesMin",
+      "ruleBytesMax",
+      "ruleCamera",
+      "ruleLens",
+      "ruleMime",
+    ] as const) {
+      delete values[key];
+    }
   }
 
   if (patch.title !== undefined && current?.kind === "collection") {

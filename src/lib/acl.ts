@@ -85,7 +85,7 @@ export type VisibleAlbum = {
   slug: string;
   title: string;
   description: string | null;
-  kind: "collection" | "dated" | "best_of";
+  kind: "collection" | "dated" | "rule" | "best_of";
   visibility: "public" | "unlisted" | "restricted";
   sort_order: number;
   rule_date_from: string | null;

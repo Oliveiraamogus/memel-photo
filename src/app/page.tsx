@@ -31,7 +31,9 @@ export default async function HomePage() {
   });
 
   const bestOf = nonEmpty.filter((a) => a.kind === "best_of").map(decorate);
-  const collections = nonEmpty.filter((a) => a.kind === "collection").map(decorate);
+  const collections = nonEmpty
+    .filter((a) => a.kind === "collection" || a.kind === "rule")
+    .map(decorate);
   const dated = nonEmpty.filter((a) => a.kind === "dated").map(decorate);
 
   const byYear = new Map<string, AlbumCardData[]>();

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { previewAlbumChange, updateAlbum, type AlbumPatch } from "@/app/admin/actions";
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { VisibilityDialog } from "@/components/admin/visibility-dialog";
+import { AlbumRuleFields } from "@/components/admin/album-rule-fields";
+import { albumRuleFormFromAlbum, albumRuleFormToInput } from "@/lib/album-rules";
 import { formatStars } from "@/lib/rating";
 
 type Album = {
@@ -11,15 +13,32 @@ type Album = {
   title: string;
   description: string | null;
   visibility: "public" | "unlisted" | "restricted";
-  kind: "collection" | "dated" | "best_of";
+  kind: "collection" | "dated" | "rule" | "best_of";
   source: "manual" | "rule";
   ruleDateFrom: string | null;
   ruleDateTo: string | null;
   ruleMinRatingHalf: number | null;
+  ruleMaxRatingHalf: number | null;
+  ruleUnratedOnly: boolean;
+  ruleIsoMin: number | null;
+  ruleIsoMax: number | null;
+  ruleApertureMin: number | null;
+  ruleApertureMax: number | null;
+  ruleExposureMin: number | null;
+  ruleExposureMax: number | null;
+  ruleFocalLengthMin: number | null;
+  ruleFocalLengthMax: number | null;
+  ruleWidthMin: number | null;
+  ruleWidthMax: number | null;
+  ruleHeightMin: number | null;
+  ruleHeightMax: number | null;
+  ruleBytesMin: number | null;
+  ruleBytesMax: number | null;
+  ruleCamera: string | null;
+  ruleLens: string | null;
+  ruleMime: string | null;
   contributesToBestOf: boolean;
 };
-
-const toDateInput = (value: string | null) => (value ? value.slice(0, 10) : "");
 
 export function AlbumForm({
   album,
@@ -39,17 +58,17 @@ export function AlbumForm({
     description: album.description ?? "",
     visibility: album.visibility,
     source: album.source,
-    ruleDateFrom: toDateInput(album.ruleDateFrom),
-    ruleDateTo: toDateInput(album.ruleDateTo),
-    ruleMinRatingHalf: album.ruleMinRatingHalf,
     contributesToBestOf: album.contributesToBestOf,
+    rules: albumRuleFormFromAlbum(album),
   });
   const [selectedTags, setSelectedTags] = useState(ruleTagIds);
 
   const isBestOf = album.kind === "best_of";
   const isDated = album.kind === "dated";
   const isCollection = album.kind === "collection";
+  const isRule = album.kind === "rule";
   const lockRules = isDated || isCollection;
+  const showRules = isRule || (form.source === "rule" && !lockRules);
 
   const patch: AlbumPatch = lockRules
     ? {
@@ -62,24 +81,22 @@ export function AlbumForm({
         title: form.title,
         description: form.description || null,
         visibility: form.visibility,
-        source: form.source,
-        ruleDateFrom: form.ruleDateFrom || null,
-        ruleDateTo: form.ruleDateTo || null,
-        ruleMinRatingHalf: form.ruleMinRatingHalf,
+        source: isRule ? "rule" : form.source,
         contributesToBestOf: form.contributesToBestOf,
+        ...(showRules ? albumRuleFormToInput(form.rules) : {}),
       };
+
+  function ruleTagPayload() {
+    return isDated || isBestOf || isCollection
+      ? undefined
+      : showRules
+        ? selectedTags
+        : [];
+  }
 
   function save() {
     startTransition(async () => {
-      await updateAlbum(
-        album.id,
-        patch,
-        isDated || isBestOf || isCollection
-          ? undefined
-          : form.source === "rule"
-            ? selectedTags
-            : [],
-      );
+      await updateAlbum(album.id, patch, ruleTagPayload());
       setDelta(null);
       setSaved(true);
     });
@@ -88,15 +105,7 @@ export function AlbumForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setSaved(false);
-    const result = await previewAlbumChange(
-      album.id,
-      patch,
-      isDated || isBestOf || isCollection
-          ? undefined
-          : form.source === "rule"
-            ? selectedTags
-            : [],
-    );
+    const result = await previewAlbumChange(album.id, patch, ruleTagPayload());
     if (result.becomingPublic.length === 0 && result.noLongerPublic.length === 0) {
       save();
       return;
@@ -158,7 +167,7 @@ export function AlbumForm({
           </select>
         </div>
 
-        {!isBestOf && !lockRules && (
+        {!isBestOf && !lockRules && !isRule && (
           <div>
             <label className="label" htmlFor="source">
               Contents
@@ -190,86 +199,23 @@ export function AlbumForm({
         </p>
       )}
 
-      {form.source === "rule" && !lockRules && (
-        <fieldset className="space-y-4 border-t border-[var(--color-line)] pt-4">
-          <legend className="label">Rule — all conditions must hold</legend>
+      {isRule && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Photos enter when they match every rule below. Removing one from the grid writes
+          an exclude so the rule stops pulling it back.
+        </p>
+      )}
 
-          <div>
-            <span className="label">Tags the photo must have</span>
-            <div className="flex flex-wrap gap-1">
-              {tags.length === 0 && (
-                <span className="text-xs text-[var(--color-muted)]">No tags yet.</span>
-              )}
-              {tags.map((tag) => {
-                const active = selectedTags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    className={`btn px-2 py-0.5 text-xs ${active ? "btn-primary" : ""}`}
-                    onClick={() =>
-                      setSelectedTags((current) =>
-                        active ? current.filter((id) => id !== tag.id) : [...current, tag.id],
-                      )
-                    }
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="label" htmlFor="from">
-                Taken from
-              </label>
-              <input
-                id="from"
-                type="date"
-                className="field"
-                value={form.ruleDateFrom}
-                onChange={(e) => setForm({ ...form, ruleDateFrom: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="to">
-                Taken until
-              </label>
-              <input
-                id="to"
-                type="date"
-                className="field"
-                value={form.ruleDateTo}
-                onChange={(e) => setForm({ ...form, ruleDateTo: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="min">
-                Minimum rating
-              </label>
-              <select
-                id="min"
-                className="field"
-                value={form.ruleMinRatingHalf ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    ruleMinRatingHalf: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-              >
-                <option value="">Any</option>
-                {Array.from({ length: 21 }, (_, half) => (
-                  <option key={half} value={half}>
-                    {formatStars(half)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </fieldset>
+      {showRules && (
+        <AlbumRuleFields
+          tags={tags}
+          selectedTagIds={selectedTags}
+          onSelectedTagIdsChange={setSelectedTags}
+          rules={form.rules}
+          onChange={(patch) =>
+            setForm((current) => ({ ...current, rules: { ...current.rules, ...patch } }))
+          }
+        />
       )}
 
       {!isBestOf && form.visibility !== "public" && (

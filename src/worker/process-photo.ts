@@ -147,6 +147,7 @@ export async function processPhoto(photoId: string) {
       iso: exif.ISO ?? null,
       aperture: exif.FNumber ?? null,
       shutter: formatShutter(exif.ExposureTime),
+      exposureSeconds: exif.ExposureTime ?? null,
       focalLength: exif.FocalLength ?? null,
       gpsLatitude: config.storeGps ? (exif.latitude ?? null) : null,
       gpsLongitude: config.storeGps ? (exif.longitude ?? null) : null,

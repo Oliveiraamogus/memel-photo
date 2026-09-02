@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { db, execRows } from "@/lib/db";
-import { createAlbum } from "../actions";
+import { tag } from "@/lib/db/schema";
+import { CreateAlbumForm } from "./create-album-form";
 
 export const dynamic = "force-dynamic";
 
@@ -17,45 +18,28 @@ type Row = {
 };
 
 export default async function AdminAlbumsPage() {
-  const albums = await execRows<Row>(
-    db,
-    sql`
+  const [albums, tags] = await Promise.all([
+    execRows<Row>(
+      db,
+      sql`
       select a.id, a.slug, a.title, a.kind::text, a.source::text, a.visibility::text,
              a.contributes_to_best_of,
              (select count(*)::int from album_photo_resolved apr where apr.album_id = a.id)
                as photo_count
       from album a
       order by
-        case a.kind when 'best_of' then 0 when 'collection' then 1 else 2 end,
+        case a.kind::text when 'best_of' then 0 when 'collection' then 1 when 'rule' then 1 else 2 end,
         a.sort_order, a.rule_date_from desc nulls last, a.title
     `,
-  );
+    ),
+    db.select({ id: tag.id, name: tag.name }).from(tag).orderBy(asc(tag.name)),
+  ]);
 
   return (
     <div>
       <h1 className="mb-6 text-xl font-medium">Albums</h1>
 
-      <form action={createAlbum} className="panel mb-8 flex flex-wrap items-end gap-3 p-4">
-        <div className="min-w-48 flex-1">
-          <label className="label" htmlFor="title">
-            New album
-          </label>
-          <input id="title" name="title" className="field" placeholder="Portugal" required />
-        </div>
-        <div>
-          <label className="label" htmlFor="visibility">
-            Visibility
-          </label>
-          <select id="visibility" name="visibility" className="field" defaultValue="restricted">
-            <option value="restricted">Restricted</option>
-            <option value="unlisted">Unlisted</option>
-            <option value="public">Public</option>
-          </select>
-        </div>
-        <button type="submit" className="btn btn-primary">
-          Create
-        </button>
-      </form>
+      <CreateAlbumForm tags={tags} />
 
       <table className="w-full text-sm">
         <thead>

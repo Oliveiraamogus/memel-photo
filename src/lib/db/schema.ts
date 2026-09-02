@@ -153,6 +153,7 @@ export const photo = pgTable(
     iso: integer("iso"),
     aperture: real("aperture"),
     shutter: text("shutter"),
+    exposureSeconds: real("exposure_seconds"),
     focalLength: real("focal_length"),
     // Only populated when STORE_GPS is on; always stripped from derivatives.
     gpsLatitude: real("gps_latitude"),
@@ -251,7 +252,7 @@ export const albumVisibility = pgEnum("album_visibility", [
   "restricted",
 ]);
 
-export const albumKind = pgEnum("album_kind", ["collection", "dated", "best_of"]);
+export const albumKind = pgEnum("album_kind", ["collection", "dated", "rule", "best_of"]);
 
 export const albumSource = pgEnum("album_source", ["manual", "rule"]);
 
@@ -274,6 +275,25 @@ export const album = pgTable(
     ruleDateFrom: timestamp("rule_date_from", { withTimezone: true }),
     ruleDateTo: timestamp("rule_date_to", { withTimezone: true }),
     ruleMinRatingHalf: smallint("rule_min_rating_half"),
+    ruleMaxRatingHalf: smallint("rule_max_rating_half"),
+    ruleUnratedOnly: boolean("rule_unrated_only").notNull().default(false),
+    ruleIsoMin: integer("rule_iso_min"),
+    ruleIsoMax: integer("rule_iso_max"),
+    ruleApertureMin: real("rule_aperture_min"),
+    ruleApertureMax: real("rule_aperture_max"),
+    ruleExposureMin: real("rule_exposure_min"),
+    ruleExposureMax: real("rule_exposure_max"),
+    ruleFocalLengthMin: real("rule_focal_length_min"),
+    ruleFocalLengthMax: real("rule_focal_length_max"),
+    ruleWidthMin: integer("rule_width_min"),
+    ruleWidthMax: integer("rule_width_max"),
+    ruleHeightMin: integer("rule_height_min"),
+    ruleHeightMax: integer("rule_height_max"),
+    ruleBytesMin: bigint("rule_bytes_min", { mode: "number" }),
+    ruleBytesMax: bigint("rule_bytes_max", { mode: "number" }),
+    ruleCamera: text("rule_camera"),
+    ruleLens: text("rule_lens"),
+    ruleMime: text("rule_mime"),
 
     /**
      * Lets a restricted album's highest-rated photos surface in Best of while
@@ -298,6 +318,10 @@ export const album = pgTable(
     check(
       "album_rule_min_rating_range",
       sql`${t.ruleMinRatingHalf} is null or (${t.ruleMinRatingHalf} >= 0 and ${t.ruleMinRatingHalf} <= 20)`,
+    ),
+    check(
+      "album_rule_max_rating_range",
+      sql`${t.ruleMaxRatingHalf} is null or (${t.ruleMaxRatingHalf} >= 0 and ${t.ruleMaxRatingHalf} <= 20)`,
     ),
     index("album_kind_idx").on(t.kind),
     index("album_visibility_idx").on(t.visibility),

@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { type Database, db, execRows } from "@/lib/db";
 import { album, albumAccess, albumPhoto, albumRuleTag, photoTag, tag, user } from "@/lib/db/schema";
+import { rulePhotoMatchSql, rulePhotoMightMatchSql } from "@/lib/album-rules";
 import {
   datedAlbumSlug,
   datedAlbumTitle,
@@ -73,13 +74,7 @@ function ruleMembershipSql(albumId: string, isBestOf: boolean) {
                 where pt.photo_id = p.id and pt.tag_id = art.tag_id
               )
           )
-          and (a.rule_date_from is null or p.taken_at >= a.rule_date_from)
-          and (a.rule_date_to is null or p.taken_at <= a.rule_date_to)
-          and (a.rule_min_rating_half is null or p.admin_rating_half >= a.rule_min_rating_half)
-          and (
-            (a.rule_date_from is null and a.rule_date_to is null)
-            or p.taken_at is not null
-          )
+          ${rulePhotoMatchSql()}
           ${bestOfClause}
         )
       )
@@ -163,13 +158,7 @@ export async function recomputeForPhoto(photoId: string, database: Database = db
             select 1 from album_photo ap
             where ap.album_id = a.id and ap.photo_id = ${photoId}
           )
-          or (
-            a.source = 'rule'
-            and (a.rule_date_from is null
-                 or (p.taken_at is not null and a.rule_date_from <= p.taken_at))
-            and (a.rule_date_to is null
-                 or (p.taken_at is not null and a.rule_date_to >= p.taken_at))
-          )
+          or (${rulePhotoMightMatchSql(photoId)})
         )
     `,
   );
