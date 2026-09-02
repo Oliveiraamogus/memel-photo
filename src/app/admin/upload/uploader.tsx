@@ -14,6 +14,19 @@ type Item = {
 
 const MAX_CONCURRENT = 3;
 
+/** randomUUID() is only available in secure contexts (HTTPS / localhost). */
+function clientRandomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function isImageFile(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  return uploadContentType(file).startsWith("image/");
+}
+
 /** Same MIME on presign and PUT — a mismatch makes Garage return 400. */
 function uploadContentType(file: File): string {
   if (file.type) return file.type;
@@ -137,9 +150,9 @@ export function Uploader({ tags }: { tags: { id: string; name: string }[] }) {
   const addFiles = useCallback(
     async (files: FileList | File[]) => {
       const incoming: Item[] = Array.from(files)
-        .filter((file) => file.type.startsWith("image/"))
+        .filter(isImageFile)
         .map((file) => ({
-          id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
+          id: `${file.name}-${file.size}-${clientRandomId()}`,
           file,
           progress: 0,
           status: "queued" as Status,
