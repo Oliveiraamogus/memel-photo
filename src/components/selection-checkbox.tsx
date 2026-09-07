@@ -3,8 +3,10 @@
 import { useRef } from "react";
 
 /**
- * Checkbox shift-click reads shiftKey from pointerdown — the change event does
- * not carry it, so range select would never see Shift held.
+ * Checkbox shift-click reads shiftKey from pointerdown/click — the change
+ * event does not carry it, so range select would never see Shift held.
+ * Click matters when the surrounding <label> is hit: the input may not get
+ * pointerdown, but it does get a click (with modifiers) before change.
  */
 export function SelectionCheckbox({
   checked,
@@ -28,7 +30,10 @@ export function SelectionCheckbox({
       onPointerDown={(event) => {
         shiftRef.current = event.shiftKey;
       }}
-      onClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        shiftRef.current = event.shiftKey;
+        event.stopPropagation();
+      }}
       onChange={() => onToggle(shiftRef.current)}
     />
   );

@@ -291,7 +291,7 @@ export function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-[var(--color-overlay)] text-[var(--color-paper)]"
+      className="fixed inset-0 z-[60] flex flex-col bg-[var(--color-overlay)] text-[var(--color-paper)]"
       role="dialog"
       aria-modal="true"
       aria-label={photo.caption ?? photo.filename}

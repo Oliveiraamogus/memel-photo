@@ -1,55 +1,51 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { bulkTag, createTagAndReturn, deletePhotos, previewBulkTag } from "@/app/admin/actions";
 import type { VisibilityDelta } from "@/lib/publish-guard";
-import { toggleRange } from "@/lib/selection";
-import { AdminPhotoCard, type AdminPhoto } from "@/components/admin/photo-card";
+import type { GalleryPhoto } from "@/lib/photos";
+import { useShiftSelection } from "@/lib/use-shift-selection";
+import { AdminPhotoCard } from "@/components/admin/photo-card";
 import { AlbumChips } from "@/components/admin/album-chips";
+import { Lightbox } from "@/components/lightbox";
 import { VisibilityDialog } from "@/components/admin/visibility-dialog";
 import { SelectionBar } from "@/components/selection-bar";
 
-type Entry = { photo: AdminPhoto; tagIds: string[]; publicReason: string | null };
+export type PhotoManagerEntry = {
+  photo: GalleryPhoto;
+  tagIds: string[];
+  publicReason: string | null;
+};
 
 export function PhotoManager({
   entries,
   tags,
   bestOfThreshold,
+  coverPhotoId,
+  leadingExtra,
 }: {
-  entries: Entry[];
+  entries: PhotoManagerEntry[];
   tags: { id: string; name: string }[];
   bestOfThreshold: number;
+  coverPhotoId?: string | null;
+  leadingExtra?: (ctx: { selected: Set<string>; pending: boolean }) => ReactNode;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const ids = entries.map((entry) => entry.photo.id);
+  const { selected, setSelected, toggle } = useShiftSelection(ids);
   const [catalog, setCatalog] = useState(tags);
   const [pending, startTransition] = useTransition();
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
-  const anchorRef = useRef<number | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const router = useRouter();
 
-  function toggle(id: string, shift: boolean) {
-    const index = entries.findIndex((entry) => entry.photo.id === id);
-    if (index < 0) return;
-    setSelected((current) =>
-      toggleRange(
-        current,
-        entries.map((entry) => entry.photo.id),
-        index,
-        shift,
-        anchorRef.current,
-      ),
-    );
-    anchorRef.current = index;
-  }
-
   async function applyBulkTag(tagId: string) {
-    const ids = [...selected];
-    const result = await previewBulkTag(ids, tagId);
+    const photoIds = [...selected];
+    const result = await previewBulkTag(photoIds, tagId);
     const apply = () =>
       startTransition(async () => {
-        await bulkTag(ids, tagId);
+        await bulkTag(photoIds, tagId);
         setSelected(new Set());
         setDelta(null);
         setConfirm(null);
@@ -63,19 +59,22 @@ export function PhotoManager({
     setConfirm(() => apply);
   }
 
+  const viewing = openIndex !== null ? entries[openIndex] : null;
+
   return (
     <>
       <SelectionBar
         count={selected.size}
         onClear={() => setSelected(new Set())}
         onDelete={async () => {
-          const ids = [...selected];
-          await deletePhotos(ids);
+          const photoIds = [...selected];
+          await deletePhotos(photoIds);
           setSelected(new Set());
           router.refresh();
         }}
         extra={
           <span className="ml-auto flex flex-wrap items-center gap-2">
+            {leadingExtra?.({ selected, pending })}
             <span className="text-xs text-[var(--color-muted)]">Add to album:</span>
             {catalog.map((tag) => (
               <button
@@ -109,19 +108,37 @@ export function PhotoManager({
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {entries.map((entry) => (
+        {entries.map((entry, index) => (
           <AdminPhotoCard
             key={entry.photo.id}
             photo={entry.photo}
             tags={catalog}
             photoTagIds={entry.tagIds}
             publicReason={entry.publicReason}
+            isCover={entry.photo.id === coverPhotoId}
             bestOfThreshold={bestOfThreshold}
             selected={selected.has(entry.photo.id)}
             onSelect={toggle}
+            onOpen={() => setOpenIndex(index)}
           />
         ))}
       </div>
+
+      {viewing && (
+        <Lightbox
+          photo={viewing.photo}
+          hasPrevious={openIndex! > 0}
+          hasNext={openIndex! < entries.length - 1}
+          onPrevious={() => setOpenIndex((current) => (current === null ? null : current - 1))}
+          onNext={() => setOpenIndex((current) => (current === null ? null : current + 1))}
+          onClose={() => setOpenIndex(null)}
+          canVote
+          onDeleted={() => {
+            setOpenIndex(null);
+            router.refresh();
+          }}
+        />
+      )}
 
       {delta && confirm && (
         <VisibilityDialog

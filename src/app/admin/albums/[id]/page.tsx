@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq, sql } from "drizzle-orm";
-import { photosInAlbum } from "@/lib/admin-photos";
+import { adminPhotoView, photosInAlbum } from "@/lib/admin-photos";
+import { config } from "@/lib/config";
 import { db, execRows } from "@/lib/db";
 import { album, albumRuleTag, group, tag, user } from "@/lib/db/schema";
-import { withUrls } from "@/lib/photos";
 import { AccessPanel, type Grant } from "./access-panel";
 import { AlbumContents } from "./album-contents";
 import { AlbumForm } from "./album-form";
@@ -41,15 +41,7 @@ export default async function AlbumEditorPage({
     ),
   ]);
 
-  const withSrc = await withUrls(contents);
-  const contentPhotos = withSrc.map((photo, index) => ({
-    id: photo.id,
-    filename: photo.filename,
-    caption: photo.caption,
-    src: photo.src,
-    srcset: photo.srcset,
-    mode: contents[index].mode,
-  }));
+  const entries = await adminPhotoView(contents);
 
   return (
     <div>
@@ -115,12 +107,12 @@ export default async function AlbumEditorPage({
         <div className="mb-3 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-sm font-medium">
-              Contents ({contentPhotos.length})
+              Contents ({entries.length})
             </h2>
             <p className="text-xs text-[var(--color-muted)]">
               {found.source === "manual"
-                ? "Drag to reorder. Removing takes the photo out of this album only."
-                : "Produced by the rule. Removing writes an exclude so the rule stops pulling it back."}
+                ? "Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range)."
+                : "Order comes from the rule. Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range). Remove from album writes an exclude."}
             </p>
           </div>
           {found.kind !== "best_of" && <AddPhotos albumId={found.id} />}
@@ -129,8 +121,10 @@ export default async function AlbumEditorPage({
         <AlbumContents
           albumId={found.id}
           source={found.source}
-          photos={contentPhotos}
+          entries={entries}
           coverPhotoId={found.coverPhotoId}
+          tags={tags}
+          bestOfThreshold={config.bestOfMinRatingHalf}
         />
       </section>
     </div>

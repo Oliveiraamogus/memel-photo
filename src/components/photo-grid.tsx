@@ -1,13 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deletePhotos } from "@/app/admin/actions";
 import type { GalleryPhoto } from "@/lib/photos";
 import { toggleRange } from "@/lib/selection";
 import { Lightbox } from "./lightbox";
+import { SelectablePhoto } from "./selectable-photo";
 import { SelectionBar } from "./selection-bar";
-import { SelectionCheckbox } from "./selection-checkbox";
 
 /**
  * A justified grid: every row is filled edge to edge by letting each photo grow
@@ -22,6 +23,7 @@ export function PhotoGrid({
   onOpen,
   selectedIds,
   onToggleSelect,
+  badgeFor,
 }: {
   photos: GalleryPhoto[];
   targetRowHeight?: number;
@@ -31,6 +33,7 @@ export function PhotoGrid({
   onOpen?: (index: number) => void;
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (id: string, index: number, shift: boolean) => void;
+  badgeFor?: (photo: GalleryPhoto) => ReactNode;
 }) {
   const router = useRouter();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -118,10 +121,13 @@ export function PhotoGrid({
               backgroundPosition: "center",
             }}
           >
-            <button
-              type="button"
-              onClick={() => (onOpen ? onOpen(index) : setOpenIndex(index))}
-              className="block h-full w-full cursor-zoom-in"
+            <SelectablePhoto
+              filename={photo.filename}
+              selected={selected.has(photo.id)}
+              selectable={canManage}
+              onToggle={(shift) => handleToggle(photo.id, index, shift)}
+              onOpen={() => (onOpen ? onOpen(index) : setOpenIndex(index))}
+              badge={badgeFor?.(photo)}
             >
               <img
                 src={photo.src}
@@ -138,16 +144,7 @@ export function PhotoGrid({
                 }}
                 className="h-full w-full object-cover opacity-0 transition-opacity duration-500"
               />
-            </button>
-            {canManage && (
-              <label className="absolute right-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
-                <SelectionCheckbox
-                  checked={selected.has(photo.id)}
-                  label={`Select ${photo.filename}`}
-                  onToggle={(shift) => handleToggle(photo.id, index, shift)}
-                />
-              </label>
-            )}
+            </SelectablePhoto>
           </div>
         ))}
       </div>

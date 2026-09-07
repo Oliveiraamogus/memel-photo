@@ -12,7 +12,7 @@ import {
 import type { VisibilityDelta } from "@/lib/publish-guard";
 import { StarInput } from "@/components/stars";
 import { AlbumChips } from "./album-chips";
-import { SelectionCheckbox } from "@/components/selection-checkbox";
+import { SelectablePhoto } from "@/components/selectable-photo";
 import { VisibilityDialog } from "./visibility-dialog";
 
 export type AdminPhoto = {
@@ -31,18 +31,22 @@ export function AdminPhotoCard({
   tags,
   photoTagIds,
   publicReason,
+  isCover,
   bestOfThreshold,
   selected,
   onSelect,
+  onOpen,
 }: {
   photo: AdminPhoto;
   tags: { id: string; name: string }[];
   photoTagIds: string[];
   /** Set when the photo is publicly visible, naming the album responsible. */
   publicReason: string | null;
+  isCover?: boolean;
   bestOfThreshold: number;
   selected?: boolean;
   onSelect?: (id: string, shift: boolean) => void;
+  onOpen?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
@@ -76,28 +80,38 @@ export function AdminPhotoCard({
   return (
     <div className="panel overflow-hidden">
       <div className="relative">
-        <img
-          src={photo.src}
-          srcSet={photo.srcset}
-          sizes="300px"
-          alt={photo.caption ?? photo.filename}
-          loading="lazy"
-          className="aspect-[4/3] w-full object-cover"
-        />
-        {publicReason && (
-          <span className="absolute left-2 top-2 rounded bg-[var(--color-accent)] px-2 py-0.5 text-xs font-medium text-black">
-            {publicReason}
-          </span>
-        )}
-        {onSelect && (
-          <label className="absolute right-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded bg-[var(--color-overlay-soft)]">
-            <SelectionCheckbox
-              checked={selected ?? false}
-              label={`Select ${photo.filename}`}
-              onToggle={(shift) => onSelect(photo.id, shift)}
-            />
-          </label>
-        )}
+        <SelectablePhoto
+          filename={photo.filename}
+          selected={selected ?? false}
+          selectable={Boolean(onSelect)}
+          onToggle={(shift) => onSelect?.(photo.id, shift)}
+          onOpen={() => onOpen?.()}
+          badge={
+            publicReason || isCover ? (
+              <span className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1">
+                {isCover && (
+                  <span className="rounded bg-[var(--color-overlay-soft)] px-1.5 py-0.5 text-[10px]">
+                    cover
+                  </span>
+                )}
+                {publicReason && (
+                  <span className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-xs font-medium text-black">
+                    {publicReason}
+                  </span>
+                )}
+              </span>
+            ) : null
+          }
+        >
+          <img
+            src={photo.src}
+            srcSet={photo.srcset}
+            sizes="300px"
+            alt={photo.caption ?? photo.filename}
+            loading="lazy"
+            className="aspect-[4/3] w-full object-cover"
+          />
+        </SelectablePhoto>
       </div>
 
       <div className="space-y-3 p-3">
