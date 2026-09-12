@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { deletePhoto } from "@/app/admin/actions";
+import { deletePhoto, previewRatingChange, setAdminRating } from "@/app/admin/actions";
+import { VisibilityDialog } from "@/components/admin/visibility-dialog";
+import type { VisibilityDelta } from "@/lib/publish-guard";
 import { formatAverage, formatStars, parseAverage } from "@/lib/rating";
 import type { GalleryPhoto } from "@/lib/photos";
 import { StarDisplay, StarInput } from "./stars";
@@ -206,6 +209,8 @@ export function Lightbox({
   onNext,
   onClose,
   canVote,
+  canSetAdminRating,
+  bestOfThreshold,
   onDeleted,
 }: {
   photo: GalleryPhoto;
@@ -215,13 +220,21 @@ export function Lightbox({
   onNext: () => void;
   onClose: () => void;
   canVote: boolean;
+  /** Photographer rating in the lightbox, same control viewers get for votes. */
+  canSetAdminRating?: boolean;
+  bestOfThreshold?: number;
   /** Called after the photo has been deleted so the parent can drop it from its list. */
   onDeleted?: (photoId: string) => void;
 }) {
+  const router = useRouter();
   const [details, setDetails] = useState<Details | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [pendingDelete, startDelete] = useTransition();
+  const [adminHalf, setAdminHalf] = useState(photo.admin_rating_half);
+  const [adminPending, startAdmin] = useTransition();
+  const [delta, setDelta] = useState<VisibilityDelta | null>(null);
+  const [confirm, setConfirm] = useState<(() => void) | null>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -253,7 +266,10 @@ export function Lightbox({
 
   useEffect(() => {
     setConfirmingDelete(false);
-  }, [photo.id]);
+    setAdminHalf(photo.admin_rating_half);
+    setDelta(null);
+    setConfirm(null);
+  }, [photo.id, photo.admin_rating_half]);
 
   async function vote(half: number) {
     setSaving(true);
@@ -278,6 +294,25 @@ export function Lightbox({
     setSaving(false);
   }
 
+  async function rateAsPhotographer(half: number) {
+    const result = await previewRatingChange(photo.id, half);
+    const apply = () =>
+      startAdmin(async () => {
+        await setAdminRating(photo.id, half);
+        setDelta(null);
+        setConfirm(null);
+        router.refresh();
+      });
+
+    if (result.becomingPublic.length === 0 && result.noLongerPublic.length === 0) {
+      apply();
+      return;
+    }
+    setDelta(result);
+    setConfirm(() => apply);
+  }
+
+  const allowAdminRating = canSetAdminRating ?? Boolean(details?.canDelete);
   const average = parseAverage(details?.ratingAvg ?? photo.rating_avg);
   const count = details?.ratingCount ?? photo.rating_count;
   const exif = [
@@ -342,7 +377,20 @@ export function Lightbox({
 
         <div>
           <span className="label">Photographer&apos;s pick</span>
-          {photo.admin_rating_half != null ? (
+          {allowAdminRating ? (
+            <span className={adminPending ? "opacity-50" : ""}>
+              <StarInput
+                value={adminHalf}
+                threshold={bestOfThreshold}
+                size={16}
+                disabled={adminPending}
+                onChange={(half) => {
+                  setAdminHalf(half);
+                  void rateAsPhotographer(half);
+                }}
+              />
+            </span>
+          ) : photo.admin_rating_half != null ? (
             <span className="flex items-center gap-2">
               <StarDisplay half={photo.admin_rating_half} />
               <span className="tabular-nums text-[var(--color-muted)]">
@@ -459,6 +507,19 @@ export function Lightbox({
             </div>
           </div>
         </div>
+      )}
+
+      {delta && confirm && (
+        <VisibilityDialog
+          delta={delta}
+          pending={adminPending}
+          onConfirm={confirm}
+          onCancel={() => {
+            setAdminHalf(photo.admin_rating_half);
+            setDelta(null);
+            setConfirm(null);
+          }}
+        />
       )}
     </div>
   );

@@ -115,6 +115,7 @@ export function AddPhotos({ albumId }: { albumId: string }) {
           onNext={() => setOpenIndex((current) => (current === null ? null : current + 1))}
           onClose={() => setOpenIndex(null)}
           canVote
+          canSetAdminRating
         />
       )}
     </div>

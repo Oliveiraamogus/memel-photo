@@ -5,6 +5,7 @@ import { albumAccess } from "@/lib/acl";
 import { db } from "@/lib/db";
 import { album } from "@/lib/db/schema";
 import { type AlbumSort, albumPhotos, withUrls } from "@/lib/photos";
+import { config } from "@/lib/config";
 import { getViewer } from "@/lib/session";
 import { PhotoGrid } from "@/components/photo-grid";
 import { SiteHeader } from "@/components/site-header";
@@ -88,6 +89,8 @@ export default async function AlbumPage({
         <PhotoGrid
           photos={photos}
           canVote={Boolean(viewer)}
+          canSetAdminRating={Boolean(viewer?.isAdmin)}
+          bestOfThreshold={config.bestOfMinRatingHalf}
         />
       </main>
     </>

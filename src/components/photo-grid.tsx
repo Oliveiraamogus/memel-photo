@@ -20,6 +20,8 @@ export function PhotoGrid({
   targetRowHeight = 240,
   canVote = false,
   canManage = false,
+  canSetAdminRating = false,
+  bestOfThreshold,
   onOpen,
   selectedIds,
   onToggleSelect,
@@ -29,6 +31,8 @@ export function PhotoGrid({
   targetRowHeight?: number;
   canVote?: boolean;
   canManage?: boolean;
+  canSetAdminRating?: boolean;
+  bestOfThreshold?: number;
   /** When set, the parent owns the lightbox (so next/prev can span groups). */
   onOpen?: (index: number) => void;
   selectedIds?: ReadonlySet<string>;
@@ -158,6 +162,8 @@ export function PhotoGrid({
           onNext={() => move(1)}
           onClose={close}
           canVote={canVote}
+          canSetAdminRating={canSetAdminRating}
+          bestOfThreshold={bestOfThreshold}
           onDeleted={() => router.refresh()}
         />
       )}

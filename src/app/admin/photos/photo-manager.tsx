@@ -136,6 +136,8 @@ export function PhotoManager({
           onNext={() => setOpenIndex((current) => (current === null ? null : current + 1))}
           onClose={() => setOpenIndex(null)}
           canVote
+          canSetAdminRating
+          bestOfThreshold={bestOfThreshold}
           onDeleted={() => {
             setOpenIndex(null);
             router.refresh();
