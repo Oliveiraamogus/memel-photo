@@ -118,8 +118,8 @@ export default async function AlbumEditorPage({
             </h2>
             <p className="text-xs text-[var(--color-muted)]">
               {found.source === "manual"
-                ? "Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range)."
-                : "Order comes from the rule. Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range). Remove from album writes an exclude."}
+                ? "Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range). Use as cover on a card."
+                : "Order comes from the rule. Same cards as Photos: rate, tag, click to view, checkbox to select (Shift-click for a range). Use as cover on a card. Remove from album writes an exclude."}
             </p>
           </div>
           {found.kind !== "best_of" && <AddPhotos albumId={found.id} />}

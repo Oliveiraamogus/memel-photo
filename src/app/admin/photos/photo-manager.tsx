@@ -24,12 +24,14 @@ export function PhotoManager({
   bestOfThreshold,
   coverPhotoId,
   leadingExtra,
+  onSetCover,
 }: {
   entries: PhotoManagerEntry[];
   tags: { id: string; name: string }[];
   bestOfThreshold: number;
   coverPhotoId?: string | null;
   leadingExtra?: (ctx: { selected: Set<string>; pending: boolean }) => ReactNode;
+  onSetCover?: (photoId: string) => void | Promise<void>;
 }) {
   const ids = entries.map((entry) => entry.photo.id);
   const { selected, setSelected, toggle } = useShiftSelection(ids);
@@ -120,6 +122,7 @@ export function PhotoManager({
             selected={selected.has(entry.photo.id)}
             onSelect={toggle}
             onOpen={() => setOpenIndex(index)}
+            onSetCover={onSetCover}
           />
         ))}
       </div>

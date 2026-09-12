@@ -39,6 +39,10 @@ export function AlbumContents({
       tags={tags}
       bestOfThreshold={bestOfThreshold}
       coverPhotoId={coverPhotoId}
+      onSetCover={async (photoId) => {
+        await setAlbumCover(albumId, photoId);
+        router.refresh();
+      }}
       leadingExtra={({ selected, pending: barPending }) => {
         const only = selected.size === 1 ? [...selected][0] : null;
         const busy = pending || barPending;

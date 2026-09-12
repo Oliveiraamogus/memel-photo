@@ -36,6 +36,7 @@ export function AdminPhotoCard({
   selected,
   onSelect,
   onOpen,
+  onSetCover,
 }: {
   photo: AdminPhoto;
   tags: { id: string; name: string }[];
@@ -47,6 +48,7 @@ export function AdminPhotoCard({
   selected?: boolean;
   onSelect?: (id: string, shift: boolean) => void;
   onOpen?: () => void;
+  onSetCover?: (photoId: string) => void | Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
   const [delta, setDelta] = useState<VisibilityDelta | null>(null);
@@ -112,6 +114,16 @@ export function AdminPhotoCard({
             className="aspect-[4/3] w-full object-cover"
           />
         </SelectablePhoto>
+        {onSetCover && !isCover && (
+          <button
+            type="button"
+            className="absolute bottom-2 left-2 z-10 rounded bg-[var(--color-overlay-soft)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--color-overlay)]"
+            disabled={pending}
+            onClick={() => startTransition(() => void onSetCover(photo.id))}
+          >
+            Use as cover
+          </button>
+        )}
       </div>
 
       <div className="space-y-3 p-3">
