@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { asc, eq, sql } from "drizzle-orm";
 import { adminPhotoView, photosInAlbum } from "@/lib/admin-photos";
 import { config } from "@/lib/config";
@@ -13,22 +13,29 @@ import { DeleteAlbumButton } from "./delete-album-button";
 
 export const dynamic = "force-dynamic";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function AlbumEditorPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
+  const { slug } = await params;
 
-  const [found] = await db.select().from(album).where(eq(album.id, id)).limit(1);
+  let [found] = await db.select().from(album).where(eq(album.slug, slug)).limit(1);
+  if (!found && UUID_RE.test(slug)) {
+    [found] = await db.select().from(album).where(eq(album.id, slug)).limit(1);
+    if (found) redirect(`/admin/albums/${found.slug}`);
+  }
   if (!found) notFound();
 
   const [tags, ruleTags, groups, users, contents, grants] = await Promise.all([
     db.select({ id: tag.id, name: tag.name }).from(tag).orderBy(asc(tag.name)),
-    db.select({ tagId: albumRuleTag.tagId }).from(albumRuleTag).where(eq(albumRuleTag.albumId, id)),
+    db.select({ tagId: albumRuleTag.tagId }).from(albumRuleTag).where(eq(albumRuleTag.albumId, found.id)),
     db.select({ id: group.id, name: group.name }).from(group).orderBy(asc(group.name)),
     db.select({ id: user.id, email: user.email }).from(user).orderBy(asc(user.email)),
-    photosInAlbum(id),
+    photosInAlbum(found.id),
     execRows<Grant>(
       db,
       sql`
@@ -36,7 +43,7 @@ export default async function AlbumEditorPage({
         from album_access acc
         left join "group" g on g.id = acc.group_id
         left join "user" u on u.id = acc.user_id
-        where acc.album_id = ${id}
+        where acc.album_id = ${found.id}
       `,
     ),
   ]);

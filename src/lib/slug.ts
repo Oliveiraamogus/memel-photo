@@ -36,12 +36,16 @@ export function endOfUtcDay(date: Date): Date {
   );
 }
 
+/** Path segments reserved by admin routes (`/admin/albums/new`). */
+const RESERVED_SLUGS = new Set(["new"]);
+
 /** Appends -2, -3 ... until the candidate is not taken. */
 export function uniqueSlug(base: string, taken: Set<string>): string {
   const seed = base || "untitled";
-  if (!taken.has(seed)) return seed;
+  const isTaken = (value: string) => taken.has(value) || RESERVED_SLUGS.has(value);
+  if (!isTaken(seed)) return seed;
   let n = 2;
-  while (taken.has(`${seed}-${n}`)) n += 1;
+  while (isTaken(`${seed}-${n}`)) n += 1;
   return `${seed}-${n}`;
 }
 

@@ -87,7 +87,13 @@ export async function createAlbum(input: CreateAlbumInput) {
       .set({ visibility, updatedAt: new Date() })
       .where(eq(album.id, albumId));
     await refreshForAlbum(albumId);
-    redirect(`/admin/albums/${albumId}`);
+    const [created] = await db
+      .select({ slug: album.slug })
+      .from(album)
+      .where(eq(album.id, albumId))
+      .limit(1);
+    if (!created) throw new Error("Album was not created");
+    redirect(`/admin/albums/${created.slug}`);
   }
 
   const taken = new Set(
@@ -105,7 +111,7 @@ export async function createAlbum(input: CreateAlbumInput) {
       contributesToBestOf: input.contributesToBestOf ?? false,
       publishedAt: new Date(),
     } as typeof album.$inferInsert)
-    .returning({ id: album.id });
+    .returning({ id: album.id, slug: album.slug });
 
   const ruleTagIds = input.ruleTagIds ?? [];
   if (ruleTagIds.length > 0) {
@@ -120,7 +126,7 @@ export async function createAlbum(input: CreateAlbumInput) {
 
   await grantAdminsOnAlbum(created.id, db);
   await refreshForAlbum(created.id);
-  redirect(`/admin/albums/${created.id}`);
+  redirect(`/admin/albums/${created.slug}`);
 }
 
 export type AlbumPatch = {

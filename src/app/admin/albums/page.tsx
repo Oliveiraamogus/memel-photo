@@ -127,7 +127,7 @@ export default async function AdminAlbumsPage({
           {albums.map((album) => (
             <tr key={album.id} className="border-b border-[var(--color-line)]">
               <td className="py-2">
-                <Link href={`/admin/albums/${album.id}`} className="hover:underline">
+                <Link href={`/admin/albums/${album.slug}`} className="hover:underline">
                   {album.title}
                 </Link>
                 {album.contributes_to_best_of && (
